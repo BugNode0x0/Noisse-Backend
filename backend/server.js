@@ -82,7 +82,7 @@ app.get('/auth', (_req, res) => {
     provider: 'authkit',
 
     // The callback endpoint that WorkOS will redirect to after a user authenticates
-    redirectUri: 'https://prototype-apidev.noisse.io1/callback',
+    redirectUri: 'https://prototype-apidev.noisse.io/callback',
     clientId,
   });
 
