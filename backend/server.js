@@ -4,114 +4,13 @@ const cors = require('cors');
 const { exec } = require('child_process');
 const { createServer } = require('http'); // Ensure this is at the top with other requires
 const { Server } = require('socket.io');
-const { WorkOS } = require('@workos-inc/node');
-const cookieParser = require('cookie-parser');
-const protectedRouter = express.Router();
-
 
 // CONFIG //
-require('dotenv').config();
-
-//JWT
-
-const { SignJWT } = require('jose');
-const { jwtVerify } = require('jose');
-
-
-const secret = new Uint8Array(
-  Buffer.from(process.env.JWT_SECRET_KEY, 'base64'),
-);
-
- // Start app 
+require('dotenv').config(); 
 
 const app = express();
-app.use(cookieParser());
 app.use(express.json());
 app.use(cors());
-
-
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
-const clientId = process.env.WORKOS_CLIENT_ID;
-const isAuthenticated = require('./middleware/auth');
-
-protectedRouter.use(isAuthenticated);
-
-
-
-//AUTH
-
-app.get('/callback', async (req, res) => {
-  // The authorization code returned by AuthKit
-  const code = req.query.code;
-  if (!code) {
-    return res.status(400).send('Code parameter is missing');
-  }
-
-  const { user } = await workos.userManagement.authenticateWithCode({
-    code,
-    clientId,
-  });
-
-  // Use the information in `user` for further business logic.
-
-  // Redirect the user to the homepage
-  // Create a JWT with the user's information
-  const token = await new SignJWT({
-    // Here you might lookup and retrieve user details from your database
-    user,
-  })
-    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-    .setIssuedAt()
-    .setExpirationTime('1h')
-    .sign(secret);
-
-  // Store in a cookie
-  res.cookie('token', token, {
-    path: '/',
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-  });
-  res.redirect('/');
-});
-
-
-app.get('/auth', (_req, res) => {
-  const authorizationUrl = workos.userManagement.getAuthorizationUrl({
-    // Specify that we'd like AuthKit to handle the authentication flow
-    provider: 'authkit',
-
-    // The callback endpoint that WorkOS will redirect to after a user authenticates
-    redirectUri: 'https://prototype-apidev.noisse.io/callback',
-    clientId,
-  });
-
-  // Redirect the user to the AuthKit sign-in page
-  res.redirect(authorizationUrl);
-});
-
-app.get('/user', isAuthenticated, async (req, res) => {
-  const token = req.cookies.token;
-  if (!token) {
-    return res.status(401).send({ isAuthenticated: false, message: "No token provided" });
-  }
-
-  // Verify the JWT signature
-  let verifiedToken;
-  try {
-    verifiedToken = await jwtVerify(token, secret);
-  } catch {
-    res.status(401).send({ isAuthenticated: false });
-  }
-
-  // Return the User object if the token is valid
-  res.status(200).send({
-    isAuthenticated: true,
-    user: verifiedToken.payload.user,
-  });
-});
-
-// TOOL ENDPOINTS //
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -140,7 +39,7 @@ io.on('connection', (socket) => {
 ///
 
  // RECON STARTED //
-app.post('/domains/enumerate', isAuthenticated, async (req, res) => {
+app.post('/domains/enumerate', async (req, res) => {
   
     const { domain } = req.body; // Make sure to validate and sanitize this in production
   
@@ -157,7 +56,7 @@ app.post('/domains/enumerate', isAuthenticated, async (req, res) => {
 /// 
 
 // DOMAIN COUNTER (REMAKE FOR ACCURACY)
-app.get('/domains/count', isAuthenticated, async (req, res) => {
+app.get('/domains/count', async (req, res) => {
   const interval = req.query.interval || 'week';
 
   let timeRangeCondition;
@@ -187,7 +86,7 @@ app.get('/domains/count', isAuthenticated, async (req, res) => {
   }
 });
 
-app.get('/domains/chart-data', isAuthenticated, async (req, res) => {
+app.get('/domains/chart-data', async (req, res) => {
   const interval = req.query.interval || 'week';
   let timeGroup = 'day'; // Default to daily stats, adjust based on interval
   
@@ -212,7 +111,7 @@ app.get('/domains/chart-data', isAuthenticated, async (req, res) => {
 });
 
 // Get all subdomains for a domain
-app.get('/domains/:domain', isAuthenticated, async (req, res) => {
+app.get('/domains/:domain', async (req, res) => {
 
   const { domain } = req.params;
   const page = parseInt(req.query.page) || 1; // Default to page 1 if not specified
@@ -243,7 +142,7 @@ app.get('/domains/:domain', isAuthenticated, async (req, res) => {
   }
 });
 
-app.get('/active-domains/count', isAuthenticated, async (req, res) => {
+app.get('/active-domains/count', async (req, res) => {
   const interval = req.query.interval || 'week';
   
   let timeRangeCondition;
@@ -272,7 +171,7 @@ app.get('/active-domains/count', isAuthenticated, async (req, res) => {
   }
 });
 
-app.get('/web-domains/count', isAuthenticated, async (req, res) => {
+app.get('/web-domains/count', async (req, res) => {
   const interval = req.query.interval || 'week';
 
   let timeRangeCondition;
@@ -303,7 +202,7 @@ app.get('/web-domains/count', isAuthenticated, async (req, res) => {
   }
 });
 
-app.get('/web-domains/chart-data', isAuthenticated, async (req, res) => {
+app.get('/web-domains/chart-data', async (req, res) => {
   const interval = req.query.interval || 'week';
   let timeGroup = 'day'; // Default group by day, adjust based on interval
   
@@ -337,7 +236,7 @@ app.get('/web-domains/chart-data', isAuthenticated, async (req, res) => {
   }
 });
 
-app.get('/active-domains/chart-data', isAuthenticated, async (req, res) => {
+app.get('/active-domains/chart-data', async (req, res) => {
   const interval = req.query.interval || 'week';
   let timeGroup = 'day'; // Default group by day, adjust based on interval
   
@@ -371,7 +270,7 @@ app.get('/active-domains/chart-data', isAuthenticated, async (req, res) => {
   }
 });
 
-app.get('/assets-ips/count', isAuthenticated, async (req, res) => {
+app.get('/assets-ips/count', async (req, res) => {
   const interval = req.query.interval || 'week';
 
   let timeRangeCondition;
@@ -402,7 +301,7 @@ app.get('/assets-ips/count', isAuthenticated, async (req, res) => {
   }
 });
 
-app.get('/assets-ips/chart-data', isAuthenticated, async (req, res) => {
+app.get('/assets-ips/chart-data', async (req, res) => {
   const interval = req.query.interval || 'week';
   let timeGroup = 'day'; // Default to grouping by days
 
@@ -442,7 +341,7 @@ app.get('/assets-ips/chart-data', isAuthenticated, async (req, res) => {
 ///
 
 //  GATHER DOMAINS
-app.get('/subdomains', isAuthenticated, async (req, res) => {
+app.get('/subdomains', async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search;
@@ -477,7 +376,7 @@ app.get('/subdomains', isAuthenticated, async (req, res) => {
 });
 
 // Get all unique root domains
-app.get('/root-domains', isAuthenticated, async (req, res) => {
+app.get('/root-domains', async (req, res) => {
   try {
     const result = await pool.query('SELECT DISTINCT root_domain FROM all_domains ORDER BY root_domain');
     res.status(200).json(result.rows.map(row => row.root_domain));
@@ -488,7 +387,7 @@ app.get('/root-domains', isAuthenticated, async (req, res) => {
 });
 
 // Get all active domains
-app.get('/active-domains', isAuthenticated, async (req, res) => {
+app.get('/active-domains', async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search || ''; // Get the search query parameter
@@ -517,7 +416,7 @@ app.get('/active-domains', isAuthenticated, async (req, res) => {
 });
 
 // Get all web URLs
-app.get('/web-domains', isAuthenticated, async (req, res) => {
+app.get('/web-domains', async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search || '';
@@ -555,7 +454,7 @@ app.get('/web-domains', isAuthenticated, async (req, res) => {
 });
 
 // 
-app.get('/assets-ips', isAuthenticated, async (req, res) => {
+app.get('/assets-ips', async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search || '';
@@ -592,7 +491,7 @@ app.get('/assets-ips', isAuthenticated, async (req, res) => {
   }
 });
 
-app.get('/flaws', isAuthenticated, async (req, res) => {
+app.get('/flaws', async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search || '';
