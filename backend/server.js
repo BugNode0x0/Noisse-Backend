@@ -38,6 +38,24 @@ io.on('connection', (socket) => {
 
 ///
 
+
+
+app.get('/db-check', async (req, res) => {
+  try {
+    // Try to get a connection from the pool
+    const client = await pool.connect();
+
+    // If successful, release the client back to the pool and send a success response
+    client.release();
+    res.status(200).send('Database connection is successful');
+  } catch (err) {
+    // If an error occurs, send an error response
+    console.error('Database connection error:', err);
+    res.status(500).send('Failed to connect to the database');
+  }
+});
+
+
  // RECON STARTED //
 app.post('/domains/enumerate', async (req, res) => {
   
