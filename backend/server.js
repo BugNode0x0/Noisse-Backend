@@ -6,7 +6,7 @@ const { createServer } = require('http'); // Ensure this is at the top with othe
 const { Server } = require('socket.io');
 const axios = require('axios');
 const { WorkOS } = require('@workos-inc/node');
-import cookieParser from 'cookie-parser';
+const cookieParser = require('cookie-parser');
 
 //Javascript Object Signing and Encryption (JOSE)
 // https://www.npmjs.com/package/jose
