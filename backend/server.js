@@ -6,7 +6,16 @@ const { createServer } = require('http'); // Ensure this is at the top with othe
 const { Server } = require('socket.io');
 const axios = require('axios');
 const { WorkOS } = require('@workos-inc/node');
+import cookieParser from 'cookie-parser';
 
+//Javascript Object Signing and Encryption (JOSE)
+// https://www.npmjs.com/package/jose
+const { SignJWT } = require('jose');
+
+// Get secret
+const secret = new Uint8Array(
+  Buffer.from(process.env.JWT_SECRET_KEY, 'base64'),
+);
 
 
 // CONFIG //
@@ -15,6 +24,8 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 app.use(cors());
+app.use(cookieParser());
+
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 const clientId = process.env.WORKOS_CLIENT_ID;
 
@@ -68,25 +79,50 @@ app.get('/callback', async (req, res) => {
     clientId,
   });
 
+  // Create a JWT with the user's information
+  const token = await new SignJWT({
+    // Here you might lookup and retrieve user details from your database
+    user,
+  })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .setIssuedAt()
+    .setExpirationTime('1h')
+    .sign(secret);
+
+  // Store in a cookie
+  res.cookie('token', token, {
+    path: '/',
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+  });
+
   // Use the information in `user` for further business logic.
 
   // Redirect the user to the homepage
   res.redirect('/');
 });
 
+app.get('/user', async (req, res) => {
+  const token = req.cookies.token;
 
+  // Verify the JWT signature
+  let verifiedToken;
+  try {
+    verifiedToken = await jwtVerify(token, secret);
+  } catch {
+    res.status(401).send({ isAuthenticated: false });
+  }
 
-
-
-
-
-
-
-
+  // Return the User object if the token is valid
+  res.status(200).send({
+    isAuthenticated: true,
+    user: verifiedToken.payload.user,
+  });
+});
 
 
 ///
-
 
 app.get('/db-check', async (req, res) => {
   try {
