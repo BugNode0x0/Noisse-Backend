@@ -7,3 +7,7 @@ redis_host = 'redis-3539a6e4-ziragold-05dd.a.aivencloud.com'
 redis_port = 21544          
 redis_password = 'AVNS_PjbSDmrkNy67HNY5b4L'
 slack_token = 'xoxb-1730780029829-6425877546755-LsBXkV5bFuUiPO3Y1TO0oFR4'
+
+# redis_host = 'roundhouse.proxy.rlwy.net'   
+# redis_port = 32567          
+# redis_password = 'J2Icjpp3hlFOoC6ghAfh53gh2mOE3iL5'

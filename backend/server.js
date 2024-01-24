@@ -4,6 +4,8 @@ const cors = require('cors');
 const { exec } = require('child_process');
 const { createServer } = require('http'); // Ensure this is at the top with other requires
 const { Server } = require('socket.io');
+const axios = require('axios');
+
 
 // CONFIG //
 require('dotenv').config(); 
@@ -57,20 +59,18 @@ app.get('/db-check', async (req, res) => {
 
 
  // RECON STARTED //
-app.post('/domains/enumerate', async (req, res) => {
-  
-    const { domain } = req.body; // Make sure to validate and sanitize this in production
-  
-    exec(`python3 new-noise/subdomain-worker.py -d ${domain}`, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Execution error: ${error}`);
-        return res.status(500).send('Error running the enumeration script');
-      }
-      io.emit('subdomain update', { message: 'Subdomain enumeration completed.' });
-  
-      res.status(200).send('Enumeration started. This may take some time.');
-    });
-  });
+ app.post('/domains/enumerate', async (req, res) => {
+  const { domain } = req.body;
+
+  try {
+      // Replace URL with your deployed Flask app's URL
+      const response = await axios.post('http://3.17.133.120:5000/asm', { domain });
+      res.status(200).send(response.data);
+  } catch (error) {
+      console.error(`Remote execution error: ${error}`);
+      res.status(500).send('Error triggering the enumeration script');
+  }
+});
 /// 
 
 // DOMAIN COUNTER (REMAKE FOR ACCURACY)
