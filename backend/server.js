@@ -5,6 +5,8 @@ const { exec } = require('child_process');
 const { createServer } = require('http'); // Ensure this is at the top with other requires
 const { Server } = require('socket.io');
 const axios = require('axios');
+const { WorkOS } = require('@workos-inc/node');
+
 
 
 // CONFIG //
@@ -13,6 +15,8 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 app.use(cors());
+const workos = new WorkOS(process.env.WORKOS_API_KEY);
+const clientId = process.env.WORKOS_CLIENT_ID;
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -38,8 +42,50 @@ io.on('connection', (socket) => {
   });
 });
 
-///
+/// AUTHENTICATION ///  
 
+app.get('/auth', (_req, res) => {
+  const authorizationUrl = workos.userManagement.getAuthorizationUrl({
+    // Specify that we'd like AuthKit to handle the authentication flow
+    provider: 'authkit',
+
+    // The callback endpoint that WorkOS will redirect to after a user authenticates
+    redirectUri: 'https://noisse-backend-production.up.railway.app/callback',
+    clientId,
+  });
+
+  // Redirect the user to the AuthKit sign-in page
+  res.redirect(authorizationUrl);
+});
+
+
+app.get('/callback', async (req, res) => {
+  // The authorization code returned by AuthKit
+  const code = req.query.code;
+
+  const { user } = await workos.userManagement.authenticateWithCode({
+    code,
+    clientId,
+  });
+
+  // Use the information in `user` for further business logic.
+
+  // Redirect the user to the homepage
+  res.redirect('/');
+});
+
+
+
+
+
+
+
+
+
+
+
+
+///
 
 
 app.get('/db-check', async (req, res) => {
