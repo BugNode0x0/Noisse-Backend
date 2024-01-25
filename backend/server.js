@@ -1,4 +1,5 @@
 const express = require('express');
+const authenticateToken = require('./authMiddleware');
 const { Pool } = require('pg');
 const cors = require('cors');
 const { exec } = require('child_process');
@@ -44,7 +45,7 @@ io.on('connection', (socket) => {
 
 
 
-app.get('/db-check', async (req, res) => {
+app.get('/db-check', authenticateToken, async (req, res) => {
   try {
     // Try to get a connection from the pool
     const client = await pool.connect();
