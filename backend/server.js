@@ -6,6 +6,8 @@ const { exec } = require('child_process');
 const { createServer } = require('http'); // Ensure this is at the top with other requires
 const { Server } = require('socket.io');
 const axios = require('axios');
+const cookieParser = require('cookie-parser');
+
 
 
 // CONFIG //
