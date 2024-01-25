@@ -54,8 +54,11 @@ io.on('connection', (socket) => {
 
 
 
-///
+//test
 
+app.get('/test-auth', authenticateToken, (req, res) => {
+  res.status(200).send('Authentication Successful');
+});
 
 app.get('/db-check', authenticateToken, async (req, res) => {
   try {
