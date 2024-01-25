@@ -15,7 +15,7 @@ require('dotenv').config();
 
 const app = express();
 const corsOptions = {
-  origin: 'https://noisse-frontend-q6okaqysr-sam-bugnodeios-projects.vercel.app/', // Replace with your actual frontend URL
+  origin: 'https://noisse-frontend.vercel.app/',
   credentials: true, // to allow sending of cookies
   methods: ['GET', 'POST', /* other HTTP methods you use */]
 };
