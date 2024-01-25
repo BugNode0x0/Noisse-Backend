@@ -14,11 +14,19 @@ const cookieParser = require('cookie-parser');
 require('dotenv').config(); 
 
 const app = express();
+const corsOptions = {
+  origin: 'https://noisse-frontend-q6okaqysr-sam-bugnodeios-projects.vercel.app/', // Replace with your actual frontend URL
+  credentials: true, // to allow sending of cookies
+  methods: ['GET', 'POST', /* other HTTP methods you use */]
+};
+app.use(cors(corsOptions));
+
+
 const authRoutes = require('./auth');
 app.use(express.json());
-app.use(cors());
 app.use(cookieParser());
 app.use('/portal', authRoutes);
+
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -43,6 +51,8 @@ io.on('connection', (socket) => {
     console.log('user disconnected');
   });
 });
+
+
 
 ///
 
