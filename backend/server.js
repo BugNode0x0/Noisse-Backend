@@ -48,7 +48,7 @@ io.on('connection', (socket) => {
 
 
 
-app.get('/db-check', authenticateToken, authenticateToken, async (req, res) => {
+app.get('/db-check', authenticateToken, async (req, res) => {
   try {
     // Try to get a connection from the pool
     const client = await pool.connect();
