@@ -18,6 +18,7 @@ const authRoutes = require('./auth');
 app.use(express.json());
 app.use(cors());
 app.use('/portal', authRoutes);
+app.use(cookieParser());
 
 const pool = new Pool({
   host: process.env.DB_HOST,
