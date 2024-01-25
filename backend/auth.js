@@ -41,7 +41,6 @@ router.get('/callback', async (req, res) => {
     });
 
     const token = await new SignJWT({
-        // Here you might lookup and retrieve user details from your database
         user,
       })
         .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
@@ -54,10 +53,10 @@ router.get('/callback', async (req, res) => {
         path: '/',
         httpOnly: true,
         secure: true,
-        sameSite: 'lax',
+        sameSite: 'None',
       });
 
-    res.redirect('/');
+    res.redirect('https://noisse-frontend.vercel.app');
   });
 
 router.get('/user', async (req, res) => {
