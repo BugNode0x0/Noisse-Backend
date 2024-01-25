@@ -17,8 +17,8 @@ const app = express();
 const authRoutes = require('./auth');
 app.use(express.json());
 app.use(cors());
-app.use('/portal', authRoutes);
 app.use(cookieParser());
+app.use('/portal', authRoutes);
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -48,7 +48,7 @@ io.on('connection', (socket) => {
 
 
 
-app.get('/db-check', authenticateToken, async (req, res) => {
+app.get('/db-check', authenticateToken, authenticateToken, async (req, res) => {
   try {
     // Try to get a connection from the pool
     const client = await pool.connect();
@@ -65,7 +65,7 @@ app.get('/db-check', authenticateToken, async (req, res) => {
 
 
  // RECON STARTED //
- app.post('/domains/enumerate', async (req, res) => {
+ app.post('/domains/enumerate', authenticateToken, async (req, res) => {
   const { domain } = req.body;
 
   try {
@@ -80,7 +80,7 @@ app.get('/db-check', authenticateToken, async (req, res) => {
 /// 
 
 // DOMAIN COUNTER (REMAKE FOR ACCURACY)
-app.get('/domains/count', async (req, res) => {
+app.get('/domains/count', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
 
   let timeRangeCondition;
@@ -110,7 +110,7 @@ app.get('/domains/count', async (req, res) => {
   }
 });
 
-app.get('/domains/chart-data', async (req, res) => {
+app.get('/domains/chart-data', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
   let timeGroup = 'day'; // Default to daily stats, adjust based on interval
   
@@ -135,7 +135,7 @@ app.get('/domains/chart-data', async (req, res) => {
 });
 
 // Get all subdomains for a domain
-app.get('/domains/:domain', async (req, res) => {
+app.get('/domains/:domain', authenticateToken, async (req, res) => {
 
   const { domain } = req.params;
   const page = parseInt(req.query.page) || 1; // Default to page 1 if not specified
@@ -166,7 +166,7 @@ app.get('/domains/:domain', async (req, res) => {
   }
 });
 
-app.get('/active-domains/count', async (req, res) => {
+app.get('/active-domains/count', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
   
   let timeRangeCondition;
@@ -195,7 +195,7 @@ app.get('/active-domains/count', async (req, res) => {
   }
 });
 
-app.get('/web-domains/count', async (req, res) => {
+app.get('/web-domains/count', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
 
   let timeRangeCondition;
@@ -226,7 +226,7 @@ app.get('/web-domains/count', async (req, res) => {
   }
 });
 
-app.get('/web-domains/chart-data', async (req, res) => {
+app.get('/web-domains/chart-data', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
   let timeGroup = 'day'; // Default group by day, adjust based on interval
   
@@ -260,7 +260,7 @@ app.get('/web-domains/chart-data', async (req, res) => {
   }
 });
 
-app.get('/active-domains/chart-data', async (req, res) => {
+app.get('/active-domains/chart-data', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
   let timeGroup = 'day'; // Default group by day, adjust based on interval
   
@@ -294,7 +294,7 @@ app.get('/active-domains/chart-data', async (req, res) => {
   }
 });
 
-app.get('/assets-ips/count', async (req, res) => {
+app.get('/assets-ips/count', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
 
   let timeRangeCondition;
@@ -325,7 +325,7 @@ app.get('/assets-ips/count', async (req, res) => {
   }
 });
 
-app.get('/assets-ips/chart-data', async (req, res) => {
+app.get('/assets-ips/chart-data', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
   let timeGroup = 'day'; // Default to grouping by days
 
@@ -365,7 +365,7 @@ app.get('/assets-ips/chart-data', async (req, res) => {
 ///
 
 //  GATHER DOMAINS
-app.get('/subdomains', async (req, res) => {
+app.get('/subdomains', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search;
@@ -400,7 +400,7 @@ app.get('/subdomains', async (req, res) => {
 });
 
 // Get all unique root domains
-app.get('/root-domains', async (req, res) => {
+app.get('/root-domains', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query('SELECT DISTINCT root_domain FROM all_domains ORDER BY root_domain');
     res.status(200).json(result.rows.map(row => row.root_domain));
@@ -411,7 +411,7 @@ app.get('/root-domains', async (req, res) => {
 });
 
 // Get all active domains
-app.get('/active-domains', async (req, res) => {
+app.get('/active-domains', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search || ''; // Get the search query parameter
@@ -440,7 +440,7 @@ app.get('/active-domains', async (req, res) => {
 });
 
 // Get all web URLs
-app.get('/web-domains', async (req, res) => {
+app.get('/web-domains', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search || '';
@@ -478,7 +478,7 @@ app.get('/web-domains', async (req, res) => {
 });
 
 // 
-app.get('/assets-ips', async (req, res) => {
+app.get('/assets-ips', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search || '';
@@ -515,7 +515,7 @@ app.get('/assets-ips', async (req, res) => {
   }
 });
 
-app.get('/flaws', async (req, res) => {
+app.get('/flaws', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search || '';
