@@ -53,6 +53,11 @@ io.on('connection', (socket) => {
 });
 
 
+app.get('/logout', (req, res) => {
+  res.clearCookie('token'); // Clear the cookie named 'token'
+  res.status(200).json({ message: 'Successfully logged out' });
+});
+
 
 //test
 
