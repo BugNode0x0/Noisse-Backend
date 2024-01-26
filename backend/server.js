@@ -51,15 +51,20 @@ io.on('connection', (socket) => {
     console.log('user disconnected');
   });
 });
-
+ 
 
 app.get('/logout', (req, res) => {
-  res.clearCookie('token', { path: '/' }); // Update the domain if necessary
+  res.clearCookie('token', {
+    path: '/',
+    domain: 'noisse-backend-production.up.railway.app', // Specify the domain if it was set when creating the cookie
+    secure: true, // if the cookie was set with Secure
+    httpOnly: true, // if the cookie was set with HttpOnly
+    sameSite: 'None', // if the cookie was set with SameSite
+  });
   res.status(200).json({ message: 'Successfully logged out' });
 });
 
 
-//test
 
 app.get('/test-auth', authenticateToken, (req, res) => {
   res.status(200).send('Authentication Successful');
@@ -575,5 +580,3 @@ const PORT = process.env.PORT || 3001;
   httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
-
-  
