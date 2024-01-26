@@ -51,19 +51,6 @@ io.on('connection', (socket) => {
     console.log('user disconnected');
   });
 });
- 
-
-app.get('/logout', (req, res) => {
-  res.clearCookie('token', {
-    path: '/',
-    domain: 'noisse-backend-production.up.railway.app', // Specify the domain if it was set when creating the cookie
-    secure: true, // if the cookie was set with Secure
-    httpOnly: true, // if the cookie was set with HttpOnly
-    sameSite: 'None', // if the cookie was set with SameSite
-  });
-  res.status(200).json({ message: 'Successfully logged out' });
-});
-
 
 
 app.get('/test-auth', authenticateToken, (req, res) => {
