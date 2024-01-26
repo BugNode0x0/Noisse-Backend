@@ -54,7 +54,7 @@ io.on('connection', (socket) => {
 
 
 app.get('/logout', (req, res) => {
-  res.clearCookie('token', { path: '/', domain: 'noisse-backend-production.up.railway.app' }); // Update the domain if necessary
+  res.clearCookie('token', { path: '/' }); // Update the domain if necessary
   res.status(200).json({ message: 'Successfully logged out' });
 });
 
