@@ -18,6 +18,19 @@ router.use(cookieParser());
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 const clientId = process.env.WORKOS_CLIENT_ID;
 
+
+router.get('/logout', (req, res) => {
+  res.clearCookie('token', {
+    path: '/',
+    domain: 'noisse-backend-production.up.railway.app', // Specify the domain if it was set when creating the cookie
+    secure: true, // if the cookie was set with Secure
+    httpOnly: true, // if the cookie was set with HttpOnly
+    sameSite: 'None', // if the cookie was set with SameSite
+  });
+  res.status(200).json({ message: 'Successfully logged out' });
+});
+
+
 router.get('/auth', (_req, res) => {
   const authorizationUrl = workos.userManagement.getAuthorizationUrl({
     provider: 'authkit',
