@@ -96,3 +96,5 @@ router.get('/user', async (req, res) => {
       res.status(401).send({ isAuthenticated: false });
   }
 });
+
+module.exports = router;

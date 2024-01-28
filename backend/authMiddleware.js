@@ -1,4 +1,6 @@
 const { jwtVerify } = require('jose');
+
+
 const secret = new Uint8Array(
     Buffer.from(process.env.JWT_SECRET_KEY, 'base64')
 );
