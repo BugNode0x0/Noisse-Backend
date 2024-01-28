@@ -71,28 +71,22 @@ router.get('/callback', async (req, res) => {
     res.redirect('https://noisse-frontend.vercel.app');
   });
 
-
 router.get('/user', async (req, res) => {
-  const token = req.cookies.token;
-
-  if (!token) {
-      return res.status(401).send({ isAuthenticated: false });
-  }
-
-  try {
-      const verifiedToken = await jwtVerify(token, secret);
-
-      // Check if verifiedToken and payload are defined
-      if (verifiedToken && verifiedToken.payload) {
-          res.status(200).send({
-              isAuthenticated: true,
-              user: verifiedToken.payload.user,
-          });
-      } else {
-          // Handle case where verifiedToken or payload is undefined
-          res.status(401).send({ isAuthenticated: false, user: null });
-      }
-  } catch {
+    const token = req.cookies.token;
+  
+    // Verify the JWT signature
+    let verifiedToken;
+    try {
+      verifiedToken = await jwtVerify(token, secret);
+    } catch {
       res.status(401).send({ isAuthenticated: false });
-  }
-});
+    }
+  
+    // Return the User object if the token is valid
+    res.status(200).send({
+      isAuthenticated: true,
+      user: verifiedToken.payload.user,
+    });
+  });
+
+module.exports = router;
