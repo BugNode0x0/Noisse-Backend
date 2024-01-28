@@ -78,7 +78,6 @@ app.get('/db-check', authenticateToken, async (req, res) => {
   const { domain } = req.body;
 
   try {
-      // Replace URL with your deployed Flask app's URL
       const response = await axios.post('http://3.17.133.120:5000/asm', { domain });
       res.status(200).send(response.data);
   } catch (error) {
