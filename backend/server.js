@@ -88,7 +88,7 @@ app.get('/db-check', authenticateToken, async (req, res) => {
   try {
       const response = await axios.post('http://cloudnineasm.noisse.io/asm', {
         domain,
-        userId, // Pass this to your Python script
+        userId,
       });
       res.status(200).send(response.data);
   } catch (error) {
