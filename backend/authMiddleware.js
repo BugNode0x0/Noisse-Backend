@@ -13,11 +13,17 @@ async function authenticateToken(req, res, next) {
     }
 
     try {
-        await jwtVerify(token, secret);
-        next(); // Token is valid, proceed to the next handler
-    } catch (error) {
+        const { payload } = await jwtVerify(token, secret);
+    
+        if (payload && payload.user && payload.user.id) {
+          req.user = { id: payload.user.id };
+          next(); 
+        } else {
+          res.status(401).json({ message: 'Invalid token payload.' });
+        }
+      } catch (error) {
         res.status(403).json({ message: 'Invalid or expired token.' });
+      }
     }
-}
-
-module.exports = authenticateToken;
+    
+    module.exports = authenticateToken;
