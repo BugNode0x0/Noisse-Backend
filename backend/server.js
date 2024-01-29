@@ -53,8 +53,15 @@ io.on('connection', (socket) => {
 });
 
 
-app.get('/test-auth', authenticateToken, (req, res) => {
-  res.status(200).send('Authentication Successful');
+app.get('/get-user-id', authenticateToken, (req, res) => {
+  // Assuming authenticateToken middleware adds a 'user' object to 'req'
+  if (req.user && req.user.id) {
+    // Send back the user ID as a response
+    res.status(200).json({ userId: req.user.id });
+  } else {
+    // If user ID is not present, send an error response
+    res.status(401).json({ error: 'User ID could not be extracted' });
+  }
 });
 
 app.get('/db-check', authenticateToken, async (req, res) => {
@@ -76,15 +83,20 @@ app.get('/db-check', authenticateToken, async (req, res) => {
  // RECON STARTED //
  app.post('/domains/enumerate', authenticateToken, async (req, res) => {
   const { domain } = req.body;
+  const userId = req.user.id;
 
   try {
-      const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain });
+      const response = await axios.post('http://cloudnineasm.noisse.io/asm', {
+        domain,
+        userId, // Pass this to your Python script
+      });
       res.status(200).send(response.data);
   } catch (error) {
       console.error(`Remote execution error: ${error}`);
       res.status(500).send('Error triggering the enumeration script');
   }
 });
+
 /// 
 
 // DOMAIN COUNTER (REMAKE FOR ACCURACY)
