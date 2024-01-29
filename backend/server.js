@@ -78,7 +78,7 @@ app.get('/db-check', authenticateToken, async (req, res) => {
   const { domain } = req.body;
 
   try {
-      const response = await axios.post('http://3.17.133.120:5000/asm', { domain });
+      const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain });
       res.status(200).send(response.data);
   } catch (error) {
       console.error(`Remote execution error: ${error}`);
