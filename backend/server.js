@@ -83,12 +83,13 @@ app.get('/db-check', authenticateToken, async (req, res) => {
  // RECON STARTED //
  app.post('/domains/enumerate', authenticateToken, async (req, res) => {
   const { domain } = req.body;
-  const userId = req.user.id;
+  const token = req.cookies.token; // Assuming the JWT token is stored in a cookie
 
   try {
-      const response = await axios.post('http://cloudnineasm.noisse.io/asm', {
-        domain,
-        userId,
+      const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain }, {
+        headers: {
+          'Authorization': `Bearer ${token}`, // Send the JWT token in the Authorization header
+        },
       });
       res.status(200).send(response.data);
   } catch (error) {
