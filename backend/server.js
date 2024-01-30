@@ -90,7 +90,7 @@ app.get('/db-check', authenticateToken, async (req, res) => {
     const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain }, {
       // Set the JWT token in the Authorization header
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Dummy': 'Dummy',
       },
     });
     res.status(200).send(response.data);
