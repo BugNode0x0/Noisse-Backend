@@ -105,23 +105,24 @@ app.get('/db-check', authenticateToken, async (req, res) => {
 
 
 
- // RECON STARTED //
- app.post('/domains/enumerate', authenticateToken, async (req, res) => {
+app.post('/domains/enumerate', authenticateToken, async (req, res) => {
   const { domain } = req.body;
-  // Extract the JWT token from the cookie named 'token'
-  const token = req.cookies.token;
+  const token = req.cookies.token; // Assuming you're using cookie-parser
+
+  if (!token) {
+      return res.status(401).send('No authentication token found');
+  }
 
   try {
-    const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain }, {
-      // Set the JWT token in the Authorization header
-      headers: {
-        'Dummy': 'Dummy',
-      },
-    });
-    res.status(200).send(response.data);
+      const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain }, {
+          headers: {
+              'Authorization': `Bearer ${token}`
+          }
+      });
+      res.status(200).send(response.data);
   } catch (error) {
-    console.error(`Remote execution error: ${error}`);
-    res.status(500).send('Error triggering the enumeration script');
+      console.error(`Remote execution error: ${error}`);
+      res.status(500).send('Error triggering the enumeration script');
   }
 });
 
