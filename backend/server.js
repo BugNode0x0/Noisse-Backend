@@ -174,29 +174,6 @@ app.get('/domains/count', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/domains/chart-data', authenticateToken, async (req, res) => {
-  const interval = req.query.interval || 'week';
-  let timeGroup = 'day'; // Default to daily stats, adjust based on interval
-  
-  // ... Logic to adjust timeGroup based on the interval ...
-
-  const query = `
-    SELECT DATE_TRUNC(${timeGroup}, timestamp) AS period, COUNT(*) AS count
-    FROM all_domains
-    GROUP BY period
-    ORDER BY period
-  `;
-
-  try {
-    const results = await pool.query(query);
-    res.status(200).json(results.rows.map(row => ({
-      name: row.period,  // Format this to your frontend needs, e.g. row.period.toISOString()
-      earning: row.count
-    })));
-  } catch (err) {
-    // ... Error handling ...
-  }
-});
 
 // Get all subdomains for a domain
 app.get('/domains/:domain', authenticateToken, async (req, res) => {
@@ -284,74 +261,6 @@ app.get('/web-domains/count', authenticateToken, async (req, res) => {
     const result = await pool.query(query);
     const count = result.rows[0].count ? parseInt(result.rows[0].count, 10) : 0;
     res.status(200).json({ count });
-  } catch (err) {
-    console.error('Database error:', err);
-    res.status(500).send('Internal server error');
-  }
-});
-
-app.get('/web-domains/chart-data', authenticateToken, async (req, res) => {
-  const interval = req.query.interval || 'week';
-  let timeGroup = 'day'; // Default group by day, adjust based on interval
-  
-  // Change the grouping based on the interval
-  switch (interval) {
-    case 'month':
-      timeGroup = 'week';
-      break;
-    case 'year':
-      timeGroup = 'month';
-      break;
-  }
-
-  const query = `
-    SELECT DATE_TRUNC('${timeGroup}', timestamp::timestamptz) as period, COUNT(*) as count
-    FROM recon
-    GROUP BY period
-    ORDER BY period
-  `;
-
-  try {
-    const { rows } = await pool.query(query);
-    const chartData = rows.map(row => ({
-      name: row.period.toISOString(), // Example conversion to ISO string
-      earning: row.count
-    }));
-    res.status(200).json(chartData);
-  } catch (err) {
-    console.error('Database error:', err);
-    res.status(500).send('Internal server error');
-  }
-});
-
-app.get('/active-domains/chart-data', authenticateToken, async (req, res) => {
-  const interval = req.query.interval || 'week';
-  let timeGroup = 'day'; // Default group by day, adjust based on interval
-  
-  // Change the grouping based on the interval
-  switch (interval) {
-    case 'month':
-      timeGroup = 'week';
-      break;
-    case 'year':
-      timeGroup = 'month';
-      break;
-  }
-
-  const query = `
-    SELECT DATE_TRUNC('${timeGroup}', timestamp::timestamptz) as period, COUNT(*) as count
-    FROM dns
-    GROUP BY period
-    ORDER BY period
-  `;
-
-  try {
-    const { rows } = await pool.query(query);
-    const chartData = rows.map(row => ({
-      name: row.period.toISOString(), // Example conversion to ISO string
-      earning: row.count
-    }));
-    res.status(200).json(chartData);
   } catch (err) {
     console.error('Database error:', err);
     res.status(500).send('Internal server error');
