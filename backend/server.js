@@ -114,9 +114,14 @@ app.post('/domains/enumerate', authenticateToken, async (req, res) => {
       return res.status(401).send('No authentication token found');
   }
 
+  // Debugging output
+  console.log("Received token:", token);
+
   try {
-      // Decode the token to get the user ID (assuming the user ID is stored in the token payload)
+      // Debugging output: Log the decoded token
       const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY); // Use your JWT secret key
+      console.log("Decoded token:", decoded);
+
       const userId = decoded.user_id; // Adjust the key based on your token's payload structure
 
       const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain }, {
@@ -131,6 +136,7 @@ app.post('/domains/enumerate', authenticateToken, async (req, res) => {
       res.status(500).send('Error triggering the enumeration script');
   }
 });
+
 /// 
 
 // DOMAIN COUNTER (REMAKE FOR ACCURACY)
