@@ -111,31 +111,32 @@ app.post('/domains/enumerate', authenticateToken, async (req, res) => {
   const token = req.cookies.token; // Assuming you're using cookie-parser
 
   if (!token) {
-      return res.status(401).send('No authentication token found');
+    return res.status(401).send('No authentication token found');
   }
 
-  // Debugging output
+  // Debugging output: Be cautious with this, only for development purposes
   console.log("Received token:", token);
+  console.log("Using JWT secret key:", process.env.JWT_SECRET_KEY);
 
   try {
-      // Debugging output: Log the decoded token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY); // Use your JWT secret key
-      console.log("Decoded token:", decoded);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY); // Use your JWT secret key
+    console.log("Decoded token:", decoded);
 
-      const userId = decoded.user_id; // Adjust the key based on your token's payload structure
+    const userId = decoded.user_id; // Adjust the key based on your token's payload structure
 
-      const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain }, {
-          headers: {
-              'Authorization': `Bearer ${token}`,
-              'X-User-ID': userId // Sending user ID in a custom header
-          }
-      });
-      res.status(200).send(response.data);
+    const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain }, {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'X-User-ID': userId // Sending user ID in a custom header
+        }
+    });
+    res.status(200).send(response.data);
   } catch (error) {
-      console.error(`Remote execution error: ${error}`);
-      res.status(500).send('Error triggering the enumeration script');
+    console.error(`Remote execution error: ${error}`);
+    res.status(500).send('Error triggering the enumeration script');
   }
 });
+
 
 /// 
 
