@@ -114,8 +114,6 @@ app.post('/domains/enumerate', async (req, res) => {
     return res.status(401).send('No authentication token found');
   }
 
-  console.log("Received token:", token);
-
   try {
     // Split the JWT into its parts
     const parts = token.split('.');
@@ -129,10 +127,7 @@ app.post('/domains/enumerate', async (req, res) => {
 
     // Extract the user ID from the decoded payload
     const userId = decodedPayload.user.id;
-    console.log("User ID:", userId);
 
-
-    // Continue with your logic...
     const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain }, {
         headers: {
             'Authorization': `Bearer ${token}`,
