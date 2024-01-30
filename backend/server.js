@@ -106,7 +106,7 @@ app.get('/db-check', authenticateToken, async (req, res) => {
 
 
 ///
-app.post('/domains/enumerate', authenticateToken, async (req, res) => {
+app.post('/domains/enumerate', async (req, res) => {
   const { domain } = req.body;
   const token = req.cookies.token; // Assuming you're using cookie-parser
 
@@ -114,29 +114,37 @@ app.post('/domains/enumerate', authenticateToken, async (req, res) => {
     return res.status(401).send('No authentication token found');
   }
 
-  // Debugging output: Be cautious with this, only for development purposes
   console.log("Received token:", token);
-  console.log("Using JWT secret key:", process.env.JWT_SECRET_KEY);
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY); // Use your JWT secret key
-    console.log("Decoded token:", decoded);
+    // Split the JWT into its parts
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      throw new Error('Token is invalid');
+    }
 
-    const userId = decoded.user_id; // Adjust the key based on your token's payload structure
+    // Decode the payload from Base64Url
+    const payload = Buffer.from(parts[1], 'base64url').toString('utf8');
+    const decodedPayload = JSON.parse(payload);
 
+    // Extract the user ID from the decoded payload
+    const userId = decodedPayload.user.id;
+    console.log("User ID:", userId);
+
+
+    // Continue with your logic...
     const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain }, {
         headers: {
             'Authorization': `Bearer ${token}`,
-            'X-User-ID': userId // Sending user ID in a custom header
+            'X-User-ID': userId 
         }
     });
     res.status(200).send(response.data);
   } catch (error) {
-    console.error(`Remote execution error: ${error}`);
-    res.status(500).send('Error triggering the enumeration script');
+    console.error(`Error: ${error.message}`);
+    res.status(500).send('Error processing the request');
   }
 });
-
 
 /// 
 
