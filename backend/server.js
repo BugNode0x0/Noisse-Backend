@@ -210,7 +210,8 @@ app.get('/domains/:domain', authenticateToken, async (req, res) => {
 
 app.get('/active-domains/count', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
-  
+  const userId = req.user.id; // Extract user ID from JWT token
+
   let timeRangeCondition;
   switch (interval) {
     case 'week':
@@ -228,7 +229,8 @@ app.get('/active-domains/count', authenticateToken, async (req, res) => {
   }
 
   try {
-    const result = await pool.query(`SELECT COUNT(*) FROM dns WHERE ${timeRangeCondition}`);
+    const query = `SELECT COUNT(*) FROM dns WHERE ${timeRangeCondition} AND user_id = $1`;
+    const result = await pool.query(query, [userId]);
     const count = result.rows[0].count ? parseInt(result.rows[0].count, 10) : 0;
     res.status(200).json({ count });
   } catch (err) {
@@ -236,6 +238,7 @@ app.get('/active-domains/count', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
+
 
 app.get('/web-domains/count', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
