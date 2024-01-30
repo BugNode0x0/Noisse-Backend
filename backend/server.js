@@ -341,23 +341,24 @@ app.get('/assets-ips/chart-data', authenticateToken, async (req, res) => {
 app.get('/subdomains', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
-  const search = req.query.search;
+  const search = req.query.search || '';
   const offset = (page - 1) * pageSize;
 
-  try {
-    // Base queries without WHERE clause
-    let countQuery = `SELECT COUNT(*) FROM all_domains`;
-    let selectQuery = `SELECT subdomain FROM all_domains ORDER BY subdomain LIMIT $1 OFFSET $2`;
-    let queryParams = [pageSize, offset];
+  // Extract user ID from JWT token
+  const userId = req.user.id;
 
-    // If search parameter is provided, append WHERE clause
+  try {
+    let countQuery = `SELECT COUNT(*) FROM all_domains WHERE user_id = $1`;
+    let selectQuery = `SELECT subdomain FROM all_domains WHERE user_id = $1 ORDER BY subdomain LIMIT $2 OFFSET $3`;
+    let queryParams = [userId, pageSize, offset];
+
     if (search) {
-      countQuery += ` WHERE subdomain ILIKE $1`;
-      selectQuery = `SELECT subdomain FROM all_domains WHERE subdomain ILIKE $1 ORDER BY subdomain LIMIT $2 OFFSET $3`;
-      queryParams = [`%${search}%`, pageSize, offset];
+      countQuery += ` AND subdomain ILIKE $4`;
+      selectQuery = `SELECT subdomain FROM all_domains WHERE user_id = $1 AND subdomain ILIKE $4 ORDER BY subdomain LIMIT $2 OFFSET $3`;
+      queryParams.push(`%${search}%`);
     }
 
-    const countResult = await pool.query(countQuery, search ? [`%${search}%`] : []);
+    const countResult = await pool.query(countQuery, queryParams);
     const result = await pool.query(selectQuery, queryParams);
 
     res.status(200).json({
