@@ -7,6 +7,8 @@ const { createServer } = require('http'); // Ensure this is at the top with othe
 const { Server } = require('socket.io');
 const axios = require('axios');
 const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
+
 
 
 
@@ -103,8 +105,7 @@ app.get('/db-check', authenticateToken, async (req, res) => {
 });
 
 
-
-
+///
 app.post('/domains/enumerate', authenticateToken, async (req, res) => {
   const { domain } = req.body;
   const token = req.cookies.token; // Assuming you're using cookie-parser
@@ -114,9 +115,14 @@ app.post('/domains/enumerate', authenticateToken, async (req, res) => {
   }
 
   try {
+      // Decode the token to get the user ID (assuming the user ID is stored in the token payload)
+      const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY); // Use your JWT secret key
+      const userId = decoded.user_id; // Adjust the key based on your token's payload structure
+
       const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain }, {
           headers: {
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${token}`,
+              'X-User-ID': userId // Sending user ID in a custom header
           }
       });
       res.status(200).send(response.data);
@@ -125,9 +131,6 @@ app.post('/domains/enumerate', authenticateToken, async (req, res) => {
       res.status(500).send('Error triggering the enumeration script');
   }
 });
-
-
-
 /// 
 
 // DOMAIN COUNTER (REMAKE FOR ACCURACY)
