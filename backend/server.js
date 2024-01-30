@@ -521,7 +521,7 @@ app.get('/flaws', authenticateToken, async (req, res) => {
     const selectResult = await pool.query(selectQuery, queryParams);
 
     res.status(200).json({
-      threats: selectResult.rows,
+      Threats: selectResult.rows,
       total: parseInt(countResult.rows[0].count),
       page,
       pageSize
