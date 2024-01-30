@@ -348,17 +348,20 @@ app.get('/subdomains', authenticateToken, async (req, res) => {
   const userId = req.user.id;
 
   try {
+    let queryParams = [userId];
     let countQuery = `SELECT COUNT(*) FROM all_domains WHERE user_id = $1`;
-    let selectQuery = `SELECT subdomain FROM all_domains WHERE user_id = $1 ORDER BY subdomain LIMIT $2 OFFSET $3`;
-    let queryParams = [userId, pageSize, offset];
+    let selectQuery = `SELECT subdomain FROM all_domains WHERE user_id = $1`;
 
     if (search) {
-      countQuery += ` AND subdomain ILIKE $4`;
-      selectQuery = `SELECT subdomain FROM all_domains WHERE user_id = $1 AND subdomain ILIKE $4 ORDER BY subdomain LIMIT $2 OFFSET $3`;
-      queryParams.push(`%${search}%`);
+      countQuery += ` AND subdomain ILIKE $2`;
+      selectQuery += ` AND subdomain ILIKE $2 ORDER BY subdomain LIMIT $3 OFFSET $4`;
+      queryParams.push(`%${search}%`, pageSize, offset);
+    } else {
+      selectQuery += ` ORDER BY subdomain LIMIT $2 OFFSET $3`;
+      queryParams.push(pageSize, offset);
     }
 
-    const countResult = await pool.query(countQuery, queryParams);
+    const countResult = await pool.query(countQuery, queryParams.slice(0, search ? 2 : 1));
     const result = await pool.query(selectQuery, queryParams);
 
     res.status(200).json({
@@ -373,16 +376,6 @@ app.get('/subdomains', authenticateToken, async (req, res) => {
   }
 });
 
-// Get all unique root domains
-app.get('/root-domains', authenticateToken, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT DISTINCT root_domain FROM all_domains ORDER BY root_domain');
-    res.status(200).json(result.rows.map(row => row.root_domain));
-  } catch (err) {
-    console.error('Database error:', err);
-    res.status(500).send('Internal server error');
-  }
-});
 
 // Get all active domains
 app.get('/active-domains', authenticateToken, async (req, res) => {
