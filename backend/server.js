@@ -81,14 +81,16 @@ app.get('/db-check', authenticateToken, async (req, res) => {
 
 
  // RECON STARTED //
-app.post('/domains/enumerate', authenticateToken, async (req, res) => {
+ app.post('/domains/enumerate', authenticateToken, async (req, res) => {
   const { domain } = req.body;
-  const token = req.cookies.token; // Assuming the JWT token is stored in a cookie named 'token'
+  // Extract the JWT token from the cookie named 'token'
+  const token = req.cookies.token;
 
   try {
     const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain }, {
+      // Set the JWT token in the Authorization header
       headers: {
-        'Authorization': `Bearer ${token}`, // Send the JWT token in the Authorization header
+        'Authorization': `Bearer ${token}`,
       },
     });
     res.status(200).send(response.data);
@@ -97,6 +99,7 @@ app.post('/domains/enumerate', authenticateToken, async (req, res) => {
     res.status(500).send('Error triggering the enumeration script');
   }
 });
+
 
 
 /// 
