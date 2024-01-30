@@ -64,6 +64,29 @@ app.get('/get-user-id', authenticateToken, (req, res) => {
   }
 });
 
+app.get('/test-auth', authenticateToken, async (req, res) => {
+  const token = req.cookies.token; // Ensure you're using cookie-parser to access cookies
+
+  if (!token) {
+      return res.status(400).send('No token found in cookies');
+  }
+
+  try {
+      // Replace 'https://httpbin.org/get' with the actual URL you want to request
+      const response = await axios.get('https://httpbin.org/get', {
+          headers: {
+              'Authorization': `Bearer ${token}`
+          }
+      });
+
+      // Send back the response from the external service
+      res.status(200).send(response.data);
+  } catch (error) {
+      console.error(`Error in making the GET request: ${error}`);
+      res.status(500).send('Error in making the GET request');
+  }
+});
+
 app.get('/db-check', authenticateToken, async (req, res) => {
   try {
     // Try to get a connection from the pool
@@ -78,6 +101,8 @@ app.get('/db-check', authenticateToken, async (req, res) => {
     res.status(500).send('Failed to connect to the database');
   }
 });
+
+
 
 
  // RECON STARTED //
