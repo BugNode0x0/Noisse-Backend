@@ -146,6 +146,7 @@ app.post('/domains/enumerate', async (req, res) => {
 // DOMAIN COUNTER (REMAKE FOR ACCURACY)
 app.get('/domains/count', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
+  const userId = req.user.id; // Extract user ID from JWT token
 
   let timeRangeCondition;
   switch (interval) {
@@ -159,13 +160,13 @@ app.get('/domains/count', authenticateToken, async (req, res) => {
       timeRangeCondition = "timestamp::timestamptz >= NOW() - INTERVAL '30 days'";
       break;
     default:
-      // Return a default week interval if the interval query parameter doesn't match any cases
       timeRangeCondition = "timestamp::timestamptz >= NOW() - INTERVAL '7 days'";
       break;
   }
 
   try {
-    const result = await pool.query(`SELECT COUNT(*) FROM all_domains WHERE ${timeRangeCondition}`);
+    const query = `SELECT COUNT(*) FROM all_domains WHERE ${timeRangeCondition} AND user_id = $1`;
+    const result = await pool.query(query, [userId]);
     const count = result.rows && result.rows.length ? parseInt(result.rows[0].count, 10) : 0;
     res.status(200).json({ count });
   } catch (err) {
