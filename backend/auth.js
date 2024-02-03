@@ -34,7 +34,7 @@ router.get('/auth', (_req, res) => {
   const authorizationUrl = workos.userManagement.getAuthorizationUrl({
     provider: 'authkit',
 
-    redirectUri: 'https://noisse-backend-production.up.railway.app/portal/callback',
+    redirectUri: 'https://noisse-backend-development.up.railway.app/portal/callback',
     clientId,
   });
 
