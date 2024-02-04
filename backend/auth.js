@@ -68,7 +68,7 @@ router.get('/callback', async (req, res) => {
         sameSite: 'None',
       });
 
-    res.redirect('https://noisse-frontend.vercel.app');
+    res.redirect('https://dev-noisse.vercel.app');
   });
 
 
