@@ -126,7 +126,7 @@ app.post('/domains/enumerate', async (req, res) => {
     // Extract the user ID from the decoded payload
     const userId = decodedPayload.user.id;
 
-    const response = await axios.post('http://cloudnineasm.noisse.io/asm', { domain }, {
+    const response = await axios.post('http://slayer.noisse.io/monitor-domain', { domain }, {
         headers: {
             'Authorization': `Bearer ${token}`,
             'X-User-ID': userId 
