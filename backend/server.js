@@ -384,19 +384,30 @@ app.get('/subdomains', authenticateToken, async (req, res) => {
 app.get('/active-domains', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
-  const search = req.query.search || ''; // Get the search query parameter
+  const search = req.query.search ? `%${req.query.search}%` : '%';
   const offset = (page - 1) * pageSize;
-  const userId = req.user.id; // Extract user ID from JWT token
+  const hunterId = req.user.id; // Extract hunter_id from JWT token
 
-  // Adjust your SQL query to filter based on the search term and user ID
-  const baseQuery = `FROM dns WHERE user_id = $1 AND host ILIKE $2`;
-  const countQuery = `SELECT COUNT(*) ${baseQuery}`;
-  const selectQuery = `SELECT host ${baseQuery} ORDER BY host LIMIT $3 OFFSET $4`;
-  
   try {
-    // Using parameterized queries to prevent SQL injection
-    const countResult = await pool.query(countQuery, [userId, `%${search}%`]);
-    const result = await pool.query(selectQuery, [userId, `%${search}%`, pageSize, offset]);
+    const countQuery = `
+      SELECT COUNT(DISTINCT dr.subdomain)
+      FROM dns_results dr
+      INNER JOIN user_subdomain us ON dr.subdomain_id = us.subdomain_id
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE u.hunter_id = $1
+        AND dr.subdomain ILIKE $2`;
+    const selectQuery = `
+      SELECT DISTINCT dr.subdomain
+      FROM dns_results dr
+      INNER JOIN user_subdomain us ON dr.subdomain_id = us.subdomain_id
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE u.hunter_id = $1
+        AND dr.subdomain ILIKE $2
+      ORDER BY dr.subdomain
+      LIMIT $3 OFFSET $4`;
+
+    const countResult = await pool.query(countQuery, [hunterId, search]);
+    const result = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
 
     res.status(200).json({
       activeDomains: result.rows,
