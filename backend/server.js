@@ -379,7 +379,6 @@ app.get('/subdomains', authenticateToken, async (req, res) => {
 });
 
 
-
 // Get all active domains
 app.get('/active-domains', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
