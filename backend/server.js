@@ -64,28 +64,6 @@ app.get('/get-user-id', authenticateToken, (req, res) => {
   }
 });
 
-app.get('/test-auth', authenticateToken, async (req, res) => {
-  const token = req.cookies.token; // Ensure you're using cookie-parser to access cookies
-
-  if (!token) {
-      return res.status(400).send('No token found in cookies');
-  }
-
-  try {
-      // Replace 'https://httpbin.org/get' with the actual URL you want to request
-      const response = await axios.get('https://httpbin.org/get', {
-          headers: {
-              'Authorization': `Bearer ${token}`
-          }
-      });
-
-      // Send back the response from the external service
-      res.status(200).send(response.data);
-  } catch (error) {
-      console.error(`Error in making the GET request: ${error}`);
-      res.status(500).send('Error in making the GET request');
-  }
-});
 
 app.get('/db-check', authenticateToken, async (req, res) => {
   try {
@@ -149,21 +127,25 @@ app.get('/domains/count', authenticateToken, async (req, res) => {
   let timeRangeCondition;
   switch (interval) {
     case 'week':
-      timeRangeCondition = "timestamp::timestamptz >= NOW() - INTERVAL '7 days'";
+      timeRangeCondition = "discovered_at::timestamptz >= NOW() - INTERVAL '7 days'";
       break;
     case 'biweekly':
-      timeRangeCondition = "timestamp::timestamptz >= NOW() - INTERVAL '14 days'";
+      timeRangeCondition = "discovered_at::timestamptz >= NOW() - INTERVAL '14 days'";
       break;
     case 'month':
-      timeRangeCondition = "timestamp::timestamptz >= NOW() - INTERVAL '30 days'";
+      timeRangeCondition = "discovered_at::timestamptz >= NOW() - INTERVAL '30 days'";
       break;
     default:
-      timeRangeCondition = "timestamp::timestamptz >= NOW() - INTERVAL '7 days'";
+      timeRangeCondition = "discovered_at::timestamptz >= NOW() - INTERVAL '7 days'";
       break;
   }
 
   try {
-    const query = `SELECT COUNT(*) FROM all_domains WHERE ${timeRangeCondition} AND user_id = $1`;
+    const query = `
+      SELECT COUNT(*) 
+      FROM user_subdomain 
+      WHERE ${timeRangeCondition} AND user_id = 41
+    `;
     const result = await pool.query(query, [userId]);
     const count = result.rows && result.rows.length ? parseInt(result.rows[0].count, 10) : 0;
     res.status(200).json({ count });
@@ -172,6 +154,7 @@ app.get('/domains/count', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
+
 
 
 // Get all subdomains for a domain
