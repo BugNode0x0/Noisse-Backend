@@ -122,31 +122,32 @@ app.post('/domains/enumerate', async (req, res) => {
 // DOMAIN COUNTER (REMAKE FOR ACCURACY)
 app.get('/domains/count', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
-  const userId = req.user.id; // Extract user ID from JWT token
+  const hunterId = req.user.id; // Extract hunter_id from JWT token
 
   let timeRangeCondition;
   switch (interval) {
     case 'week':
-      timeRangeCondition = "discovered_at::timestamptz >= NOW() - INTERVAL '7 days'";
+      timeRangeCondition = "us.discovered_at::timestamptz >= NOW() - INTERVAL '7 days'";
       break;
     case 'biweekly':
-      timeRangeCondition = "discovered_at::timestamptz >= NOW() - INTERVAL '14 days'";
+      timeRangeCondition = "us.discovered_at::timestamptz >= NOW() - INTERVAL '14 days'";
       break;
     case 'month':
-      timeRangeCondition = "discovered_at::timestamptz >= NOW() - INTERVAL '30 days'";
+      timeRangeCondition = "us.discovered_at::timestamptz >= NOW() - INTERVAL '30 days'";
       break;
     default:
-      timeRangeCondition = "discovered_at::timestamptz >= NOW() - INTERVAL '7 days'";
+      timeRangeCondition = "us.discovered_at::timestamptz >= NOW() - INTERVAL '7 days'";
       break;
   }
 
   try {
     const query = `
       SELECT COUNT(*) 
-      FROM user_subdomain 
-      WHERE ${timeRangeCondition} AND user_id = 41
+      FROM user_subdomain us
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE ${timeRangeCondition} AND u.hunter_id = $1
     `;
-    const result = await pool.query(query, [userId]);
+    const result = await pool.query(query, [hunterId]);
     const count = result.rows && result.rows.length ? parseInt(result.rows[0].count, 10) : 0;
     res.status(200).json({ count });
   } catch (err) {
