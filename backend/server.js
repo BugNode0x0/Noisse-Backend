@@ -459,33 +459,34 @@ app.get('/web-domains', authenticateToken, async (req, res) => {
   }
 });
 
-
-
 // 
 app.get('/assets-ips', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
-  const search = req.query.search || '';
+  const search = req.query.search ? `%${req.query.search}%` : '%';
   const offset = (page - 1) * pageSize;
-  const userId = req.user.id; // Extract user ID from JWT token
+  const hunterId = req.user.id; // Extract hunter_id from JWT token
 
-  let countQuery, selectQuery, queryParams;
-  if (search) {
-    // If there's a search term, use it as a condition in the WHERE clause.
-    countQuery = `SELECT COUNT(*) FROM dns WHERE user_id = $1 AND (a ILIKE $2 OR host ILIKE $2)`;
-    selectQuery = `SELECT a, host, status_code FROM dns WHERE user_id = $1 AND (a ILIKE $2 OR host ILIKE $2) ORDER BY a LIMIT $3 OFFSET $4`;
-    queryParams = [userId, `%${search}%`, pageSize, offset];
-  } else {
-    // If there's no search term, execute the query with the user_id filter.
-    countQuery = `SELECT COUNT(*) FROM dns WHERE user_id = $1`;
-    selectQuery = `SELECT a, host, status_code FROM dns WHERE user_id = $1 ORDER BY a LIMIT $2 OFFSET $3`;
-    queryParams = [userId, pageSize, offset];
-  }
-  
   try {
-    // Execute the queries using the constructed SQL and params.
-    const countResult = await pool.query(countQuery, search ? [userId, `%${search}%`] : [userId]);
-    const selectResult = await pool.query(selectQuery, queryParams);
+    const countQuery = `
+      SELECT COUNT(DISTINCT dr.dns_id)
+      FROM dns_results dr
+      INNER JOIN user_subdomain us ON dr.subdomain_id = us.subdomain_id
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE u.hunter_id = $1
+        AND (dr.subdomain ILIKE $2 OR dr.ip ILIKE $2)`;
+    const selectQuery = `
+      SELECT dr.subdomain, dr.ip, dr.status_code
+      FROM dns_results dr
+      INNER JOIN user_subdomain us ON dr.subdomain_id = us.subdomain_id
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE u.hunter_id = $1
+        AND (dr.subdomain ILIKE $2 OR dr.ip ILIKE $2)
+      ORDER BY dr.subdomain
+      LIMIT $3 OFFSET $4`;
+
+    const countResult = await pool.query(countQuery, [hunterId, search]);
+    const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
 
     res.status(200).json({
       assetsIps: selectResult.rows,
@@ -500,6 +501,7 @@ app.get('/assets-ips', authenticateToken, async (req, res) => {
 });
 
 
+// To implement
 app.get('/flaws', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
