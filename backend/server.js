@@ -378,8 +378,6 @@ app.get('/subdomains', authenticateToken, async (req, res) => {
   }
 });
 
-
-// Get all active domains
 app.get('/active-domains', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
@@ -420,32 +418,34 @@ app.get('/active-domains', authenticateToken, async (req, res) => {
   }
 });
 
-
-// Get all web URLs
 app.get('/web-domains', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
-  const search = req.query.search || '';
+  const search = req.query.search ? `%${req.query.search}%` : '%';
   const offset = (page - 1) * pageSize;
-  const userId = req.user.id; // Extract user ID from JWT token
+  const hunterId = req.user.id; // Extract hunter_id from JWT token
 
-  let countQuery, selectQuery, queryParams;
-  if (search) {
-    // If there's a search term, use it as a condition in the WHERE clause.
-    countQuery = `SELECT COUNT(*) FROM recon WHERE user_id = $1 AND (url ILIKE $2 OR title ILIKE $2)`;
-    selectQuery = `SELECT url, title, status_code FROM recon WHERE user_id = $1 AND (url ILIKE $2 OR title ILIKE $2) ORDER BY url LIMIT $3 OFFSET $4`;
-    queryParams = [userId, `%${search}%`, pageSize, offset];
-  } else {
-    // If there's no search term, execute the query without a WHERE clause.
-    countQuery = `SELECT COUNT(*) FROM recon WHERE user_id = $1`;
-    selectQuery = `SELECT url, title, status_code FROM recon WHERE user_id = $1 ORDER BY url LIMIT $2 OFFSET $3`;
-    queryParams = [userId, pageSize, offset];
-  }
-  
   try {
-    // Execute the queries using the constructed SQL and params.
-    const countResult = await pool.query(countQuery, search ? [userId, `%${search}%`] : [userId]);
-    const selectResult = await pool.query(selectQuery, queryParams);
+    const selectQuery = `
+      SELECT DISTINCT hr.url, hr.title, hr.status_code, hr.webserver, hr.tech
+      FROM http_results hr
+      INNER JOIN user_subdomain us ON hr.subdomain_id = us.subdomain_id
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE u.hunter_id = $1
+        AND (hr.url ILIKE $2 OR hr.title ILIKE $2)
+      ORDER BY hr.url
+      LIMIT $3 OFFSET $4`;
+
+    const countQuery = `
+      SELECT COUNT(DISTINCT hr.url)
+      FROM http_results hr
+      INNER JOIN user_subdomain us ON hr.subdomain_id = us.subdomain_id
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE u.hunter_id = $1
+        AND (hr.url ILIKE $2 OR hr.title ILIKE $2)`;
+
+    const countResult = await pool.query(countQuery, [hunterId, search]);
+    const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
 
     res.status(200).json({
       webDomains: selectResult.rows,
@@ -458,6 +458,7 @@ app.get('/web-domains', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
+
 
 
 // 
