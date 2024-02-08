@@ -261,32 +261,35 @@ app.get('/web-domains/count', authenticateToken, async (req, res) => {
   }
 });
 
-
-// Possibly detele this
 app.get('/assets-ips/count', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
-  const userId = req.user.id; // Extract user ID from JWT token
+  const hunterId = req.user.id; // Extract hunter_id from JWT token
 
   let timeRangeCondition;
   switch (interval) {
     case 'week':
-      timeRangeCondition = `timestamp::timestamptz >= NOW() - INTERVAL '7 days'`;
+      timeRangeCondition = `dr.timestamp::timestamptz >= NOW() - INTERVAL '7 days'`;
       break;
     case 'biweekly':
-      timeRangeCondition = `timestamp::timestamptz >= NOW() - INTERVAL '14 days'`;
+      timeRangeCondition = `dr.timestamp::timestamptz >= NOW() - INTERVAL '14 days'`;
       break;
     case 'month':
-      timeRangeCondition = `timestamp::timestamptz >= NOW() - INTERVAL '30 days'`;
+      timeRangeCondition = `dr.timestamp::timestamptz >= NOW() - INTERVAL '30 days'`;
       break;
     default:
-      timeRangeCondition = `timestamp::timestamptz >= NOW() - INTERVAL '7 days'`;
+      timeRangeCondition = `dr.timestamp::timestamptz >= NOW() - INTERVAL '7 days'`;
       break;
   }
 
-  const query = `SELECT COUNT(*) FROM dns WHERE ${timeRangeCondition} AND user_id = $1`;
-
   try {
-    const result = await pool.query(query, [userId]);
+    const query = `
+      SELECT COUNT(DISTINCT dr.ip)
+      FROM dns_results dr
+      INNER JOIN user_subdomain us ON dr.subdomain_id = us.subdomain_id
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE ${timeRangeCondition} AND u.hunter_id = $1
+    `;
+    const result = await pool.query(query, [hunterId]);
     const count = result.rows[0].count ? parseInt(result.rows[0].count, 10) : 0;
     res.status(200).json({ count });
   } catch (err) {
