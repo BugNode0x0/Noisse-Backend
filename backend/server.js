@@ -295,7 +295,7 @@ app.get('/assets-ips/count', authenticateToken, async (req, res) => {
   }
 });
 
-
+// Possibly detele this
 app.get('/assets-ips/chart-data', authenticateToken, async (req, res) => {
   const interval = req.query.interval || 'week';
   const userId = req.user.id; // Extract user ID from JWT token
@@ -336,34 +336,35 @@ app.get('/assets-ips/chart-data', authenticateToken, async (req, res) => {
   }
 });
 
-///
 
 //  GATHER DOMAINS
 app.get('/subdomains', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
-  const search = req.query.search || '';
+  const search = req.query.search ? `%${req.query.search}%` : '%';
   const offset = (page - 1) * pageSize;
-
-  // Extract user ID from JWT token
-  const userId = req.user.id;
+  const hunterId = req.user.id; // Extract hunter_id from JWT token
 
   try {
-    let queryParams = [userId];
-    let countQuery = `SELECT COUNT(*) FROM all_domains WHERE user_id = $1`;
-    let selectQuery = `SELECT subdomain FROM all_domains WHERE user_id = $1`;
+    let countQuery = `
+      SELECT COUNT(*) 
+      FROM subdomains s
+      INNER JOIN user_subdomain us ON s.subdomain_id = us.subdomain_id
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE u.hunter_id = $1
+        AND s.subdomain ILIKE $2`;
+    let selectQuery = `
+      SELECT s.subdomain 
+      FROM subdomains s
+      INNER JOIN user_subdomain us ON s.subdomain_id = us.subdomain_id
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE u.hunter_id = $1
+        AND s.subdomain ILIKE $2
+      ORDER BY s.subdomain
+      LIMIT $3 OFFSET $4`;
 
-    if (search) {
-      countQuery += ` AND subdomain ILIKE $2`;
-      selectQuery += ` AND subdomain ILIKE $2 ORDER BY subdomain LIMIT $3 OFFSET $4`;
-      queryParams.push(`%${search}%`, pageSize, offset);
-    } else {
-      selectQuery += ` ORDER BY subdomain LIMIT $2 OFFSET $3`;
-      queryParams.push(pageSize, offset);
-    }
-
-    const countResult = await pool.query(countQuery, queryParams.slice(0, search ? 2 : 1));
-    const result = await pool.query(selectQuery, queryParams);
+    const countResult = await pool.query(countQuery, [hunterId, search]);
+    const result = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
 
     res.status(200).json({
       subdomains: result.rows,
@@ -376,6 +377,7 @@ app.get('/subdomains', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
+
 
 
 // Get all active domains
