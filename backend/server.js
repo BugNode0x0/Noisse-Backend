@@ -464,10 +464,13 @@ app.get('/assets-ips', authenticateToken, async (req, res) => {
 
 // Screenshot implementation
 app.get('/webview', authenticateToken, async (req, res) => {
-  // Extract the hunter_id from the authenticated user
-  const hunterId = req.user.hunter_id; // Assuming the JWT decoding middleware adds this to req.user
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 10;
+  const search = req.query.search ? `%${req.query.search}%` : '%';
+  const offset = (page - 1) * pageSize;
+  const hunterId = req.user.hunter_id; // Extract hunter_id from JWT token
 
-  const query = `
+  const selectQuery = `
     SELECT 
       sr.screenshot_id, 
       sr.url as screenshot_url, 
@@ -491,17 +494,25 @@ app.get('/webview', authenticateToken, async (req, res) => {
     JOIN 
       users u ON us.user_id = u.user_id
     WHERE 
-      u.hunter_id = $1
-  `;
+      u.hunter_id = $1 AND 
+      (sr.url ILIKE $2 OR hr.url ILIKE $2 OR hr.title ILIKE $2)
+    ORDER BY 
+      sr.timestamp DESC
+    LIMIT $3 OFFSET $4`;
 
   try {
-    const result = await pool.query(query, [hunterId]);
-    res.status(200).json(result.rows);
+    const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
+    res.status(200).json({
+      screenshots: selectResult.rows,
+      page,
+      pageSize
+    });
   } catch (err) {
     console.error('Database error:', err);
     res.status(500).send('Internal server error');
   }
 });
+
 
 
 
