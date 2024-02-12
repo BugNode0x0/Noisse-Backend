@@ -504,46 +504,6 @@ app.get('/assets-ips', authenticateToken, async (req, res) => {
 });
 
 
-// To implement
-app.get('/flaws', authenticateToken, async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const pageSize = parseInt(req.query.pageSize) || 10;
-  const search = req.query.search || '';
-  const offset = (page - 1) * pageSize;
-  const userId = req.user.id; // Extract user ID from JWT token
-
-  let countQuery, selectQuery, queryParams;
-  if (search) {
-    // If there's a search term, use it as a condition in the WHERE clause.
-    countQuery = `SELECT COUNT(*) FROM threats WHERE user_id = $1 AND (matched_at ILIKE $2 OR name ILIKE $2)`;
-    selectQuery = `SELECT matched_at, name, severity, template_id FROM threats WHERE user_id = $1 AND (matched_at ILIKE $2 OR name ILIKE $2) ORDER BY matched_at LIMIT $3 OFFSET $4;`;
-    queryParams = [userId, `%${search}%`, pageSize, offset];
-  } else {
-    // If there's no search term, execute the query with the user_id filter.
-    countQuery = `SELECT COUNT(*) FROM threats WHERE user_id = $1`;
-    selectQuery = `SELECT matched_at, name, severity, template_id FROM threats WHERE user_id = $1 ORDER BY matched_at LIMIT $2 OFFSET $3`;
-    queryParams = [userId, pageSize, offset];
-  }
-  
-  try {
-    // Execute the queries using the constructed SQL and params.
-    const countResult = await pool.query(countQuery, search ? [userId, `%${search}%`] : [userId]);
-    const selectResult = await pool.query(selectQuery, queryParams);
-
-    res.status(200).json({
-      Threats: selectResult.rows,
-      total: parseInt(countResult.rows[0].count),
-      page,
-      pageSize
-    });
-  } catch (err) {
-    console.error('Database error:', err);
-    res.status(500).send('Internal server error');
-  }
-});
-
-
-
 
 const PORT = process.env.PORT || 3001;
   httpServer.listen(PORT, () => {
