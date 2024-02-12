@@ -430,7 +430,7 @@ app.get('/web-domains', authenticateToken, async (req, res) => {
 
   try {
     const selectQuery = `
-      SELECT DISTINCT hr.url, hr.title, hr.status_code, , hr.content_length, hr.webserver, hr.tech
+      SELECT DISTINCT hr.url, hr.title, hr.status_code, hr.content_length, hr.webserver, hr.tech
       FROM http_results hr
       INNER JOIN user_subdomain us ON hr.subdomain_id = us.subdomain_id
       INNER JOIN users u ON us.user_id = u.user_id
