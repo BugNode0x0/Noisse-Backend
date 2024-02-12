@@ -298,47 +298,6 @@ app.get('/assets-ips/count', authenticateToken, async (req, res) => {
   }
 });
 
-// Possibly detele this
-app.get('/assets-ips/chart-data', authenticateToken, async (req, res) => {
-  const interval = req.query.interval || 'week';
-  const userId = req.user.id; // Extract user ID from JWT token
-  let timeGroup = 'day'; // Default to grouping by days
-
-  // Adjust the timeGroup based on the interval
-  switch (interval) {
-    case 'biweekly':
-      timeGroup = 'week';
-      break;
-    case 'month':
-      timeGroup = 'month';
-      break;
-    // Add more cases if necessary
-  }
-
-  // Query to get the chart data
-  const chartQuery = `
-    SELECT
-      DATE_TRUNC('${timeGroup}', timestamp::timestamptz) as period,
-      COUNT(*) as count
-    FROM dns
-    WHERE user_id = $1
-    GROUP BY period
-    ORDER BY period
-  `;
-
-  try {
-    const chartResult = await pool.query(chartQuery, [userId]);
-    const chartData = chartResult.rows.map(row => ({
-      date: row.period.toISOString(),
-      count: row.count
-    }));
-    res.status(200).json(chartData);
-  } catch (err) {
-    console.error('Database error:', err);
-    res.status(500).send('Internal server error');
-  }
-});
-
 
 //  GATHER DOMAINS
 app.get('/subdomains', authenticateToken, async (req, res) => {
@@ -497,6 +456,47 @@ app.get('/assets-ips', authenticateToken, async (req, res) => {
       page,
       pageSize
     });
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).send('Internal server error');
+  }
+});
+
+// Screenshot implementation
+app.get('/webview', authenticateToken, async (req, res) => {
+  // Extract the hunter_id from the authenticated user
+  const hunterId = req.user.hunter_id; // Assuming the JWT decoding middleware adds this to req.user
+
+  const query = `
+    SELECT 
+      sr.screenshot_id, 
+      sr.url as screenshot_url, 
+      sr.screenshot, 
+      sr.dom, 
+      sr.timestamp,
+      hr.url, 
+      hr.title, 
+      hr.status_code, 
+      hr.content_length, 
+      hr.webserver, 
+      hr.tech
+    FROM 
+      screenshot_results sr
+    JOIN 
+      http_results hr ON sr.subdomain_id = hr.subdomain_id
+    JOIN 
+      subdomains s ON sr.subdomain_id = s.subdomain_id
+    JOIN 
+      user_subdomain us ON s.subdomain_id = us.subdomain_id
+    JOIN 
+      users u ON us.user_id = u.user_id
+    WHERE 
+      u.hunter_id = $1
+  `;
+
+  try {
+    const result = await pool.query(query, [hunterId]);
+    res.status(200).json(result.rows);
   } catch (err) {
     console.error('Database error:', err);
     res.status(500).send('Internal server error');
