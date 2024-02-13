@@ -470,32 +470,33 @@ app.get('/webview', authenticateToken, async (req, res) => {
 
   try {
     const selectQuery = `
-      SELECT 
-        sr.screenshot_id, 
-        sr.url as website_url, 
-        sr.screenshot_url, 
-        sr.timestamp,
-        hr.url as http_url, 
-        hr.title, 
-        hr.status_code, 
-        hr.content_length, 
-        hr.webserver, 
-        hr.tech
-      FROM 
+    SELECT 
+      DISTINCT ON (sr.screenshot_id) sr.screenshot_id, 
+      sr.url as website_url, 
+      sr.screenshot_url, 
+      sr.timestamp,
+      hr.url as http_url, 
+      hr.title, 
+      hr.status_code, 
+      hr.content_length, 
+      hr.webserver, 
+      hr.tech
+    FROM 
         screenshot_results sr
-      INNER JOIN 
+    INNER JOIN 
         http_results hr ON sr.subdomain_id = hr.subdomain_id
-      WHERE 
+    WHERE 
         (sr.url ILIKE $2 OR hr.url ILIKE $2 OR hr.title ILIKE $2)
-      AND 
+    AND 
         EXISTS (
-          SELECT 1 FROM user_subdomain us
-          INNER JOIN users u ON us.user_id = u.user_id
-          WHERE u.hunter_id = $1 AND us.subdomain_id = sr.subdomain_id
+            SELECT 1 FROM user_subdomain us
+            INNER JOIN users u ON us.user_id = u.user_id
+            WHERE u.hunter_id = $1 AND us.subdomain_id = sr.subdomain_id
         )
-      ORDER BY 
-        sr.timestamp DESC
-      LIMIT $3 OFFSET $4`;
+    ORDER BY 
+        sr.screenshot_id, sr.timestamp DESC
+    LIMIT $3 OFFSET $4`;
+
 
     const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
 
