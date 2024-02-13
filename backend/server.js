@@ -464,7 +464,9 @@ app.get('/assets-ips', authenticateToken, async (req, res) => {
 app.get('/webview', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
-  const hunterId = req.user.id; // Extract hunter_id from JWT token
+  const search = req.query.search ? `%${req.query.search}%` : '%';
+  const offset = (page - 1) * pageSize;
+  const hunterId = req.user.id;
 
   try {
     const selectQuery = `
@@ -484,7 +486,7 @@ app.get('/webview', authenticateToken, async (req, res) => {
       ORDER BY 
         sr.timestamp DESC`;
 
-    const selectResult = await pool.query(selectQuery, [hunterId]);
+    const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
 
     res.status(200).json({
       webview: selectResult.rows,
