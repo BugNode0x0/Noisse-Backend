@@ -386,7 +386,6 @@ app.get('/web-domains', authenticateToken, async (req, res) => {
   const search = req.query.search ? `%${req.query.search}%` : '%';
   const offset = (page - 1) * pageSize;
   const hunterId = req.user.id; // Extract hunter_id from JWT token
-  console.log(req.user.hunter_id)
 
   try {
     const selectQuery = `
@@ -470,6 +469,7 @@ app.get('/webview', authenticateToken, async (req, res) => {
   const search = req.query.search ? `%${req.query.search}%` : '%';
   const offset = (page - 1) * pageSize;
   const hunterId = req.user.hunter_id; // Extract hunter_id from JWT token
+  console.log('Hunter ID:', req.user.hunter_id);
 
   const selectQuery = `
     SELECT 
