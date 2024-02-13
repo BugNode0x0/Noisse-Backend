@@ -427,7 +427,7 @@ app.get('/assets-ips', authenticateToken, async (req, res) => {
   const search = req.query.search ? `%${req.query.search}%` : '%';
   const offset = (page - 1) * pageSize;
   const hunterId = req.user.id; // Extract hunter_id from JWT token
-  onsole.log('User ID:', hunterId)
+  console.log('User ID:', hunterId)
 
   try {
     const countQuery = `
