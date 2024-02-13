@@ -473,11 +473,10 @@ app.get('/webview', authenticateToken, async (req, res) => {
   const selectQuery = `
     SELECT 
       sr.screenshot_id, 
-      sr.url as screenshot_url, 
-      sr.screenshot, 
-      sr.dom, 
+      sr.url as website_url, 
+      sr.screenshot_url, 
       sr.timestamp,
-      hr.url, 
+      hr.url as http_url, 
       hr.title, 
       hr.status_code, 
       hr.content_length, 
@@ -485,35 +484,39 @@ app.get('/webview', authenticateToken, async (req, res) => {
       hr.tech
     FROM 
       screenshot_results sr
-    JOIN 
+    INNER JOIN 
       http_results hr ON sr.subdomain_id = hr.subdomain_id
-    JOIN 
-      subdomains s ON sr.subdomain_id = s.subdomain_id
-    JOIN 
-      user_subdomain us ON s.subdomain_id = us.subdomain_id
-    JOIN 
-      users u ON us.user_id = u.user_id
     WHERE 
-      u.hunter_id = $1 AND 
       (sr.url ILIKE $2 OR hr.url ILIKE $2 OR hr.title ILIKE $2)
+    AND 
+      EXISTS (
+        SELECT 1 FROM user_subdomain us
+        INNER JOIN users u ON us.user_id = u.user_id
+        WHERE u.hunter_id = $1 AND us.subdomain_id = sr.subdomain_id
+      )
     ORDER BY 
       sr.timestamp DESC
     LIMIT $3 OFFSET $4`;
 
   try {
     const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
+    const webviews = selectResult.rows.map(row => {
+      // Assuming screenshot_url is a full path to the S3 bucket image
+      row.screenshot_url = row.screenshot_url ? `https://${row.screenshot_url}` : null;
+      return row;
+    });
+
     res.status(200).json({
-      screenshots: selectResult.rows,
+      webviews,
       page,
-      pageSize
+      pageSize,
+      total: selectResult.rowCount // Assuming you have a way to calculate the total number of rows
     });
   } catch (err) {
     console.error('Database error:', err);
     res.status(500).send('Internal server error');
   }
 });
-
-
 
 
 const PORT = process.env.PORT || 3001;
