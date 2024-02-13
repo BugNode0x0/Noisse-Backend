@@ -511,6 +511,48 @@ app.get('/webview', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/jsview', authenticateToken, async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 10;
+  const search = req.query.search ? `%${req.query.search}%` : '%';
+  const offset = (page - 1) * pageSize;
+  const hunterId = req.user.id;
+
+  try {
+    const selectQuery = `
+      SELECT 
+          DISTINCT ON (jr.js_id) jr.js_id, 
+          jr.subdomain_id, 
+          jr.url, 
+          jr.timestamp
+      FROM 
+          js_results jr
+      INNER JOIN 
+          user_subdomain us ON jr.subdomain_id = us.subdomain_id
+      INNER JOIN 
+          users u ON us.user_id = u.user_id
+      WHERE 
+          u.hunter_id = $1
+      AND 
+          (jr.url ILIKE $2)
+      ORDER BY 
+          jr.js_id, jr.timestamp DESC
+      LIMIT $3 OFFSET $4`;
+
+    const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
+
+    res.status(200).json({
+      jsview: selectResult.rows,
+      page,
+      pageSize
+    });
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).send('Internal server error');
+  }
+});
+
+
 const PORT = process.env.PORT || 3001;
   httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
