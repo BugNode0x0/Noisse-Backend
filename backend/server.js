@@ -461,7 +461,41 @@ app.get('/assets-ips', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/webview', authenticateToken, async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 10;
+  const hunterId = req.user.id; // Extract hunter_id from JWT token
 
+  try {
+    const selectQuery = `
+      SELECT 
+        sr.screenshot_id, 
+        sr.url as website_url, 
+        sr.screenshot_url, 
+        sr.timestamp
+      FROM 
+        screenshot_results sr
+      INNER JOIN 
+        user_subdomain us ON sr.subdomain_id = us.subdomain_id
+      INNER JOIN 
+        users u ON us.user_id = u.user_id
+      WHERE 
+        u.hunter_id = $1
+      ORDER BY 
+        sr.timestamp DESC`;
+
+    const selectResult = await pool.query(selectQuery, [hunterId]);
+
+    res.status(200).json({
+      webview: selectResult.rows,
+      page,
+      pageSize
+    });
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).send('Internal server error');
+  }
+});
 
 const PORT = process.env.PORT || 3001;
   httpServer.listen(PORT, () => {
