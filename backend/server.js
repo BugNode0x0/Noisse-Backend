@@ -464,60 +464,39 @@ app.get('/assets-ips', authenticateToken, async (req, res) => {
 
 // Screenshot implementation
 app.get('/webview', authenticateToken, async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const pageSize = parseInt(req.query.pageSize) || 10;
-  const search = req.query.search ? `%${req.query.search}%` : '%';
-  const offset = (page - 1) * pageSize;
   const hunterId = req.user.hunter_id; // Extract hunter_id from JWT token
-  console.log('Hunter ID:', req.user.hunter_id);
 
   const selectQuery = `
     SELECT 
       sr.screenshot_id, 
       sr.url as website_url, 
       sr.screenshot_url, 
-      sr.timestamp,
-      hr.url as http_url, 
-      hr.title, 
-      hr.status_code, 
-      hr.content_length, 
-      hr.webserver, 
-      hr.tech
+      sr.timestamp
     FROM 
       screenshot_results sr
     INNER JOIN 
-      http_results hr ON sr.subdomain_id = hr.subdomain_id
+      user_subdomain us ON sr.subdomain_id = us.subdomain_id
+    INNER JOIN 
+      users u ON us.user_id = u.user_id
     WHERE 
-      (sr.url ILIKE $2 OR hr.url ILIKE $2 OR hr.title ILIKE $2)
-    AND 
-      EXISTS (
-        SELECT 1 FROM user_subdomain us
-        INNER JOIN users u ON us.user_id = u.user_id
-        WHERE u.hunter_id = $1 AND us.subdomain_id = sr.subdomain_id
-      )
+      u.hunter_id = $1
     ORDER BY 
-      sr.timestamp DESC
-    LIMIT $3 OFFSET $4`;
+      sr.timestamp DESC`;
 
   try {
-    const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
+    const selectResult = await pool.query(selectQuery, [hunterId]);
     const webviews = selectResult.rows.map(row => {
-      // Assuming screenshot_url is a full path to the S3 bucket image
       row.screenshot_url = row.screenshot_url ? `https://${row.screenshot_url}` : null;
       return row;
     });
 
-    res.status(200).json({
-      webviews,
-      page,
-      pageSize,
-      total: selectResult.rowCount // Assuming you have a way to calculate the total number of rows
-    });
+    res.status(200).json(webviews);
   } catch (err) {
     console.error('Database error:', err);
     res.status(500).send('Internal server error');
   }
 });
+
 
 
 const PORT = process.env.PORT || 3001;
