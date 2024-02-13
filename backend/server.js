@@ -421,6 +421,41 @@ app.get('/web-domains', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/webview', authenticateToken, async (req, res) => {
+  const hunterId = req.user.hunter_id; // Extract hunter_id from JWT token
+
+  const selectQuery = `
+    SELECT 
+      sr.screenshot_id, 
+      sr.url as website_url, 
+      sr.screenshot_url, 
+      sr.timestamp
+    FROM 
+      screenshot_results sr
+    INNER JOIN 
+      user_subdomain us ON sr.subdomain_id = us.subdomain_id
+    INNER JOIN 
+      users u ON us.user_id = u.user_id
+    WHERE 
+      u.hunter_id = $1
+    ORDER BY 
+      sr.timestamp DESC`;
+
+  try {
+    const selectResult = await pool.query(selectQuery, [hunterId]);
+    const webviews = selectResult.rows.map(row => {
+      row.screenshot_url = row.screenshot_url ? `https://${row.screenshot_url}` : null;
+      return row;
+    });
+
+    res.status(200).json(webviews);
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).send('Internal server error');
+  }
+});
+
+
 // 
 app.get('/assets-ips', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
@@ -456,41 +491,6 @@ app.get('/assets-ips', authenticateToken, async (req, res) => {
       page,
       pageSize
     });
-  } catch (err) {
-    console.error('Database error:', err);
-    res.status(500).send('Internal server error');
-  }
-});
-
-// Screenshot implementation
-app.get('/webview', authenticateToken, async (req, res) => {
-  const hunterId = req.user.hunter_id; // Extract hunter_id from JWT token
-
-  const selectQuery = `
-    SELECT 
-      sr.screenshot_id, 
-      sr.url as website_url, 
-      sr.screenshot_url, 
-      sr.timestamp
-    FROM 
-      screenshot_results sr
-    INNER JOIN 
-      user_subdomain us ON sr.subdomain_id = us.subdomain_id
-    INNER JOIN 
-      users u ON us.user_id = u.user_id
-    WHERE 
-      u.hunter_id = $1
-    ORDER BY 
-      sr.timestamp DESC`;
-
-  try {
-    const selectResult = await pool.query(selectQuery, [hunterId]);
-    const webviews = selectResult.rows.map(row => {
-      row.screenshot_url = row.screenshot_url ? `https://${row.screenshot_url}` : null;
-      return row;
-    });
-
-    res.status(200).json(webviews);
   } catch (err) {
     console.error('Database error:', err);
     res.status(500).send('Internal server error');
