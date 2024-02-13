@@ -386,6 +386,7 @@ app.get('/web-domains', authenticateToken, async (req, res) => {
   const search = req.query.search ? `%${req.query.search}%` : '%';
   const offset = (page - 1) * pageSize;
   const hunterId = req.user.id; // Extract hunter_id from JWT token
+  console.log(req.user.hunter_id)
 
   try {
     const selectQuery = `
