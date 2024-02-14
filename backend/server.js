@@ -556,6 +556,45 @@ app.get('/jsview', authenticateToken, async (req, res) => {
   }
 });
 
+// Slack integration
+app.get('/user/webhook', authenticateToken, async (req, res) => {
+  const hunterId = req.user.id; // Extract hunter_id from JWT token
+
+  try {
+    const query = `
+      SELECT webhook_url
+      FROM user_webhooks
+      WHERE user_id = $1
+    `;
+    const result = await pool.query(query, [hunterId]);
+    const webhookUrl = result.rows.length > 0 ? result.rows[0].webhook_url : null;
+    res.status(200).json({ webhookUrl });
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).send('Internal server error');
+  }
+});
+
+app.post('/user/webhook', authenticateToken, async (req, res) => {
+  const hunterId = req.user.id; // Extract hunter_id from JWT token
+  const { webhookUrl } = req.body;
+
+  try {
+    const query = `
+      INSERT INTO user_webhooks (user_id, webhook_url)
+      VALUES ($1, $2)
+      ON CONFLICT (user_id)
+      DO UPDATE SET webhook_url = EXCLUDED.webhook_url
+    `;
+    await pool.query(query, [hunterId, webhookUrl]);
+    res.status(200).send('Webhook updated successfully');
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).send('Internal server error');
+  }
+});
+
+
 
 const PORT = process.env.PORT || 3001;
   httpServer.listen(PORT, () => {
