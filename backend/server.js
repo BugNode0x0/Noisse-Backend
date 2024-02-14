@@ -521,16 +521,19 @@ app.get('/jsview', authenticateToken, async (req, res) => {
   try {
     const selectQuery = `
       SELECT 
-          DISTINCT ON (jr.js_id) jr.js_id, 
-          jr.subdomain_id, 
-          jr.url, 
-          jr.timestamp
+      DISTINCT ON (jr.js_id) jr.js_id, 
+      jr.subdomain_id, 
+      s.subdomain,  -- Adding the subdomain from the subdomains table
+      jr.url, 
+      jr.timestamp
       FROM 
           js_results jr
       INNER JOIN 
           user_subdomain us ON jr.subdomain_id = us.subdomain_id
       INNER JOIN 
           users u ON us.user_id = u.user_id
+      INNER JOIN 
+          subdomains s ON jr.subdomain_id = s.subdomain_id  -- Joining the subdomains table
       WHERE 
           u.hunter_id = $1
       AND 
@@ -538,6 +541,7 @@ app.get('/jsview', authenticateToken, async (req, res) => {
       ORDER BY 
           jr.js_id, jr.timestamp DESC
       LIMIT $3 OFFSET $4`;
+
 
     const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
 
