@@ -562,9 +562,10 @@ app.get('/user/webhook', authenticateToken, async (req, res) => {
 
   try {
     const query = `
-      SELECT webhook_url
-      FROM user_webhooks
-      WHERE user_id = $1
+      SELECT uw.webhook_url
+      FROM user_webhooks uw
+      INNER JOIN users u ON uw.user_id = u.user_id
+      WHERE u.hunter_id = $1
     `;
     const result = await pool.query(query, [hunterId]);
     const webhookUrl = result.rows.length > 0 ? result.rows[0].webhook_url : null;
@@ -582,7 +583,9 @@ app.post('/user/webhook', authenticateToken, async (req, res) => {
   try {
     const query = `
       INSERT INTO user_webhooks (user_id, webhook_url)
-      VALUES ($1, $2)
+      SELECT user_id, $2
+      FROM users
+      WHERE hunter_id = $1
       ON CONFLICT (user_id)
       DO UPDATE SET webhook_url = EXCLUDED.webhook_url
     `;
@@ -593,7 +596,6 @@ app.post('/user/webhook', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
-
 
 
 const PORT = process.env.PORT || 3001;
