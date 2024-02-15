@@ -587,7 +587,7 @@ app.post('/user/webhook', authenticateToken, async (req, res) => {
       FROM users
       WHERE hunter_id = $1
       ON CONFLICT (user_id)
-      DO UPDATE SET webhook_url = EXCLUDED.webhook_url
+      DO UPDATE SET webhook_url = EXCLUDED.webhook_url;
     `;
     await pool.query(query, [hunterId, webhookUrl]);
     res.status(200).send('Webhook updated successfully');
