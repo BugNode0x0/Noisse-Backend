@@ -469,47 +469,63 @@ app.get('/webview', authenticateToken, async (req, res) => {
   const hunterId = req.user.id;
 
   try {
+    // Query to get the screenshots for the current page
     const selectQuery = `
-    SELECT 
-      DISTINCT ON (sr.screenshot_id) sr.screenshot_id, 
-      sr.url as website_url, 
-      sr.screenshot_url, 
-      sr.timestamp,
-      hr.url as http_url, 
-      hr.title, 
-      hr.status_code, 
-      hr.content_length, 
-      hr.webserver, 
-      hr.tech
-    FROM 
-        screenshot_results sr
-    INNER JOIN 
-        http_results hr ON sr.subdomain_id = hr.subdomain_id
-    WHERE 
-        (sr.url ILIKE $2 OR hr.url ILIKE $2 OR hr.title ILIKE $2)
-    AND 
-        EXISTS (
-            SELECT 1 FROM user_subdomain us
-            INNER JOIN users u ON us.user_id = u.user_id
-            WHERE u.hunter_id = $1 AND us.subdomain_id = sr.subdomain_id
-        )
-    ORDER BY 
-        sr.screenshot_id, sr.timestamp DESC
-    LIMIT $3 OFFSET $4`;
+      SELECT DISTINCT ON (sr.screenshot_id) sr.screenshot_id, 
+        sr.url as website_url, 
+        sr.screenshot_url, 
+        sr.timestamp,
+        hr.url as http_url, 
+        hr.title, 
+        hr.status_code, 
+        hr.content_length, 
+        hr.webserver, 
+        hr.tech
+      FROM screenshot_results sr
+      INNER JOIN http_results hr ON sr.subdomain_id = hr.subdomain_id
+      WHERE (sr.url ILIKE $2 OR hr.url ILIKE $2 OR hr.title ILIKE $2)
+      AND EXISTS (
+          SELECT 1 FROM user_subdomain us
+          INNER JOIN users u ON us.user_id = u.user_id
+          WHERE u.hunter_id = $1 AND us.subdomain_id = sr.subdomain_id
+      )
+      ORDER BY sr.screenshot_id, sr.timestamp DESC
+      LIMIT $3 OFFSET $4
+    `;
 
+    // Query to count the total number of distinct screenshots
+    const totalQuery = `
+      SELECT COUNT(DISTINCT sr.screenshot_id) as total 
+      FROM screenshot_results sr
+      INNER JOIN http_results hr ON sr.subdomain_id = hr.subdomain_id
+      WHERE (sr.url ILIKE $2 OR hr.url ILIKE $2 OR hr.title ILIKE $2)
+      AND EXISTS (
+          SELECT 1 FROM user_subdomain us
+          INNER JOIN users u ON us.user_id = u.user_id
+          WHERE u.hunter_id = $1 AND us.subdomain_id = sr.subdomain_id
+      )
+    `;
 
-    const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
+    // Execute both queries
+    const [selectResult, totalResult] = await Promise.all([
+      pool.query(selectQuery, [hunterId, search, pageSize, offset]),
+      pool.query(totalQuery, [hunterId, search])
+    ]);
 
+    // Send back the results and the total count
     res.status(200).json({
       webview: selectResult.rows,
+      total: parseInt(totalResult.rows[0].total, 10), // Parse the total count to an integer
       page,
       pageSize
     });
+
   } catch (err) {
     console.error('Database error:', err);
     res.status(500).send('Internal server error');
   }
 });
+
 
 app.get('/jsview', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
