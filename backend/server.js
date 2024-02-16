@@ -535,42 +535,68 @@ app.get('/jsview', authenticateToken, async (req, res) => {
   const hunterId = req.user.id;
 
   try {
+    // Select query to fetch the data
     const selectQuery = `
       SELECT 
-      DISTINCT ON (jr.js_id) jr.js_id, 
-      jr.subdomain_id, 
-      s.subdomain,  -- Adding the subdomain from the subdomains table
-      jr.url, 
-      jr.timestamp
+        DISTINCT ON (jr.js_id) jr.js_id, 
+        jr.subdomain_id, 
+        s.subdomain,
+        jr.url, 
+        jr.timestamp
       FROM 
-          js_results jr
+        js_results jr
       INNER JOIN 
-          user_subdomain us ON jr.subdomain_id = us.subdomain_id
+        user_subdomain us ON jr.subdomain_id = us.subdomain_id
       INNER JOIN 
-          users u ON us.user_id = u.user_id
+        users u ON us.user_id = u.user_id
       INNER JOIN 
-          subdomains s ON jr.subdomain_id = s.subdomain_id  -- Joining the subdomains table
+        subdomains s ON jr.subdomain_id = s.subdomain_id
       WHERE 
-          u.hunter_id = $1
-      AND 
-          (jr.url ILIKE $2)
+        u.hunter_id = $1
+        AND (jr.url ILIKE $2)
       ORDER BY 
-          jr.js_id, jr.timestamp DESC
+        jr.js_id, jr.timestamp DESC
       LIMIT $3 OFFSET $4`;
 
+    // Count query to get the total number of matching entries
+    const countQuery = `
+      SELECT 
+        COUNT(DISTINCT jr.js_id) as total
+      FROM 
+        js_results jr
+      INNER JOIN 
+        user_subdomain us ON jr.subdomain_id = us.subdomain_id
+      INNER JOIN 
+        users u ON us.user_id = u.user_id
+      INNER JOIN 
+        subdomains s ON jr.subdomain_id = s.subdomain_id
+      WHERE 
+        u.hunter_id = $1
+        AND (jr.url ILIKE $2)`;
 
-    const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
+    // Execute both the select and count queries
+    const [selectResult, countResult] = await Promise.all([
+      pool.query(selectQuery, [hunterId, search, pageSize, offset]),
+      pool.query(countQuery, [hunterId, search])
+    ]);
 
+    // Extract the total count from the count query result
+    const totalItems = parseInt(countResult.rows[0].total, 10);
+
+    // Send back the results and the total count
     res.status(200).json({
       jsview: selectResult.rows,
+      total: totalItems,
       page,
       pageSize
     });
+    
   } catch (err) {
     console.error('Database error:', err);
     res.status(500).send('Internal server error');
   }
 });
+
 
 // Slack integration
 app.get('/user/webhook', authenticateToken, async (req, res) => {
