@@ -10,6 +10,7 @@ const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 
 
+
 // CONFIG //
 require('dotenv').config(); 
 
