@@ -473,25 +473,26 @@ app.get('/webview', authenticateToken, async (req, res) => {
     // Query to get the screenshots for the current page
     const selectQuery = `
       SELECT DISTINCT ON (sr.screenshot_id) sr.screenshot_id, 
-        sr.url as website_url, 
-        sr.screenshot_url, 
-        sr.timestamp,
-        hr.url as http_url, 
-        hr.title, 
-        hr.status_code, 
-        hr.content_length, 
-        hr.webserver, 
-        hr.tech
-      FROM screenshot_results sr
-      INNER JOIN http_results hr ON sr.subdomain_id = hr.subdomain_id
-      WHERE (sr.url ILIKE $2 OR hr.url ILIKE $2 OR hr.title ILIKE $2)
-      AND EXISTS (
-          SELECT 1 FROM user_subdomain us
-          INNER JOIN users u ON us.user_id = u.user_id
-          WHERE u.hunter_id = $1 AND us.subdomain_id = sr.subdomain_id
-      )
-      ORDER BY sr.screenshot_id, sr.timestamp DESC
-      LIMIT $3 OFFSET $4
+      sr.url as website_url, 
+      sr.screenshot_url, 
+      sr.timestamp,
+      hr.url as http_url, 
+      hr.title, 
+      hr.status_code, 
+      hr.content_length, 
+      hr.webserver, 
+      hr.tech
+    FROM screenshot_results sr
+    INNER JOIN http_results hr ON sr.subdomain_id = hr.subdomain_id
+    WHERE (sr.url ILIKE $2 OR hr.url ILIKE $2 OR hr.title ILIKE $2)
+    AND sr.screenshot_url IS NOT NULL
+    AND EXISTS (
+        SELECT 1 FROM user_subdomain us
+        INNER JOIN users u ON us.user_id = u.user_id
+        WHERE u.hunter_id = $1 AND us.subdomain_id = sr.subdomain_id
+    )
+    ORDER BY sr.screenshot_id, sr.timestamp DESC
+    LIMIT $3 OFFSET $4
     `;
 
     // Query to count the total number of distinct screenshots
@@ -500,11 +501,12 @@ app.get('/webview', authenticateToken, async (req, res) => {
       FROM screenshot_results sr
       INNER JOIN http_results hr ON sr.subdomain_id = hr.subdomain_id
       WHERE (sr.url ILIKE $2 OR hr.url ILIKE $2 OR hr.title ILIKE $2)
+      AND sr.screenshot_url IS NOT NULL
       AND EXISTS (
           SELECT 1 FROM user_subdomain us
           INNER JOIN users u ON us.user_id = u.user_id
           WHERE u.hunter_id = $1 AND us.subdomain_id = sr.subdomain_id
-      )
+    )
     `;
 
     // Execute both queries
