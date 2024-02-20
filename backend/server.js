@@ -484,7 +484,13 @@ app.get('/webview', authenticateToken, async (req, res) => {
       hr.tech
     FROM screenshot_results sr
     INNER JOIN http_results hr ON sr.subdomain_id = hr.subdomain_id
-    WHERE (sr.url ILIKE $2 OR hr.url ILIKE $2 OR hr.title ILIKE $2)
+    WHERE (
+      sr.url ILIKE $2 OR 
+      hr.url ILIKE $2 OR 
+      hr.title ILIKE $2 OR 
+      hr.content_length::text ILIKE $2 OR
+      hr.status_code::text ILIKE $2
+    )
     AND sr.screenshot_url IS NOT NULL
     AND EXISTS (
         SELECT 1 FROM user_subdomain us
