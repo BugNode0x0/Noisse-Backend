@@ -395,7 +395,14 @@ app.get('/web-domains', authenticateToken, async (req, res) => {
       INNER JOIN user_subdomain us ON hr.subdomain_id = us.subdomain_id
       INNER JOIN users u ON us.user_id = u.user_id
       WHERE u.hunter_id = $1
-        AND (hr.url ILIKE $2 OR hr.title ILIKE $2)
+      AND (
+        hr.url ILIKE $2 OR 
+        hr.title ILIKE $2 OR 
+        hr.status_code::text ILIKE $2 OR 
+        hr.content_length::text ILIKE $2 OR
+        hr.webserver ILIKE $2 OR
+        hr.tech ILIKE $2
+      )
       ORDER BY hr.url
       LIMIT $3 OFFSET $4`;
 
@@ -405,7 +412,14 @@ app.get('/web-domains', authenticateToken, async (req, res) => {
       INNER JOIN user_subdomain us ON hr.subdomain_id = us.subdomain_id
       INNER JOIN users u ON us.user_id = u.user_id
       WHERE u.hunter_id = $1
-        AND (hr.url ILIKE $2 OR hr.title ILIKE $2)`;
+      AND (
+        hr.url ILIKE $2 OR 
+        hr.title ILIKE $2 OR 
+        hr.status_code::text ILIKE $2 OR 
+        hr.content_length::text ILIKE $2 OR
+        hr.webserver ILIKE $2 OR
+        hr.tech ILIKE $2
+      )`;
 
     const countResult = await pool.query(countQuery, [hunterId, search]);
     const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
