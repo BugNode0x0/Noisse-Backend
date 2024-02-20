@@ -540,42 +540,41 @@ app.get('/jsview', authenticateToken, async (req, res) => {
   try {
     // Select query to fetch the data
     const selectQuery = `
-      SELECT 
-        DISTINCT ON (jr.js_id) jr.js_id, 
-        jr.subdomain_id, 
-        s.subdomain,
-        jr.url, 
-        jr.timestamp
-      FROM 
-        js_results jr
-      INNER JOIN 
-        user_subdomain us ON jr.subdomain_id = us.subdomain_id
-      INNER JOIN 
-        users u ON us.user_id = u.user_id
-      INNER JOIN 
-        subdomains s ON jr.subdomain_id = s.subdomain_id
-      WHERE 
-        u.hunter_id = $1
-        AND (jr.url ILIKE $2)
-      ORDER BY 
-        jr.js_id, jr.timestamp DESC
-      LIMIT $3 OFFSET $4`;
+      SELECT
+      s.subdomain,
+      ARRAY_AGG(jr.url ORDER BY jr.timestamp DESC) as urls
+    FROM
+      js_results jr
+    INNER JOIN
+      user_subdomain us ON jr.subdomain_id = us.subdomain_id
+    INNER JOIN
+      users u ON us.user_id = u.user_id
+    INNER JOIN
+      subdomains s ON jr.subdomain_id = s.subdomain_id
+    WHERE
+      u.hunter_id = $1
+      AND (jr.url ILIKE $2)
+    GROUP BY
+      s.subdomain
+    ORDER BY
+      s.subdomain
+    LIMIT $3 OFFSET $4`;
 
     // Count query to get the total number of matching entries
     const countQuery = `
-      SELECT 
-        COUNT(DISTINCT jr.js_id) as total
-      FROM 
-        js_results jr
-      INNER JOIN 
-        user_subdomain us ON jr.subdomain_id = us.subdomain_id
-      INNER JOIN 
-        users u ON us.user_id = u.user_id
-      INNER JOIN 
-        subdomains s ON jr.subdomain_id = s.subdomain_id
-      WHERE 
-        u.hunter_id = $1
-        AND (jr.url ILIKE $2)`;
+      SELECT
+      COUNT(DISTINCT s.subdomain) as total
+    FROM
+      js_results jr
+    INNER JOIN
+      user_subdomain us ON jr.subdomain_id = us.subdomain_id
+    INNER JOIN
+      users u ON us.user_id = u.user_id
+    INNER JOIN
+      subdomains s ON jr.subdomain_id = s.subdomain_id
+    WHERE
+      u.hunter_id = $1
+      AND (jr.url ILIKE $2)`;
 
     // Execute both the select and count queries
     const [selectResult, countResult] = await Promise.all([
