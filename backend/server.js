@@ -85,19 +85,27 @@ app.post('/create-subscription', authenticateToken, async (req, res) => {
 app.post('/cancel-subscription', authenticateToken, async (req, res) => {
   const userId = req.user.id; // Assuming authenticateToken adds user info to req.user
   try {
-    // Retrieve user's Stripe subscription ID from your database
-    const userResult = await pool.query('SELECT stripe_subscription_id FROM user_payments WHERE user_id = $1', [userId]);
-    const stripeSubscriptionId = userResult.rows[0]?.stripe_subscription_id;
+    // Retrieve user's Stripe customer ID from your database
+    const userResult = await pool.query('SELECT stripe_customer_id FROM user_payments WHERE user_id = $1', [userId]);
+    const stripeCustomerId = userResult.rows[0]?.stripe_customer_id;
 
-    if (!stripeSubscriptionId) {
-      return res.status(404).send('Stripe subscription not found for user');
+    if (!stripeCustomerId) {
+      return res.status(404).send('Stripe customer not found for user');
+    }
+
+    // Retrieve all subscriptions for the customer from Stripe
+    const subscriptions = await stripe.subscriptions.list({ customer: stripeCustomerId, status: 'active' });
+    const subscriptionId = subscriptions.data[0]?.id; // Assuming the user will only have one active subscription
+
+    if (!subscriptionId) {
+      return res.status(404).send('Active Stripe subscription not found for user');
     }
 
     // Cancel the subscription on Stripe
-    const canceledSubscription = await stripe.subscriptions.del(stripeSubscriptionId);
+    const canceledSubscription = await stripe.subscriptions.del(subscriptionId);
 
     // Update your database to reflect the cancellation
-    await pool.query('UPDATE user_payments SET subscription_status = $1 WHERE stripe_subscription_id = $2', ['canceled', stripeSubscriptionId]);
+    await pool.query('UPDATE user_payments SET subscription_status = $1 WHERE stripe_customer_id = $2', ['canceled', stripeCustomerId]);
 
     // Respond to the client that the cancellation was successful
     res.status(200).json({ message: 'Subscription cancelled successfully' });
@@ -106,6 +114,7 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
+
 
 
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (request, response) => {
