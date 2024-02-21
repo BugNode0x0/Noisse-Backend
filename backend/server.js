@@ -82,35 +82,6 @@ app.post('/create-subscription', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/create-subscription', authenticateToken, async (req, res) => {
-  // Retrieve the authenticated user's ID from the request
-  const userId = req.user.id;
-
-  try {
-    // Retrieve the Stripe customer ID from your database
-    const customerResult = await pool.query('SELECT stripe_customer_id FROM user_payments WHERE user_id = $1', [userId]);
-    const stripeCustomerId = customerResult.rows[0]?.stripe_customer_id;
-
-    if (!stripeCustomerId) {
-      return res.status(404).send('Stripe customer ID not found for user.');
-    }
-
-    // Create a subscription
-    const subscription = await stripe.subscriptions.create({
-      customer: stripeCustomerId,
-      items: [{ price: 'price_1OmLFdEexrrszXdmYle8omB1' }], // Replace with the correct price ID
-      expand: ['latest_invoice.payment_intent'], // To include the payment intent in the response
-    });
-
-    res.send({
-      subscriptionId: subscription.id,
-      clientSecret: subscription.latest_invoice.payment_intent.client_secret,
-    });
-  } catch (err) {
-    console.error('Stripe error:', err);
-    res.status(500).send('Internal server error');
-  }
-});
 
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (request, response) => {
   const sigHeader = request.headers['stripe-signature'];
@@ -156,7 +127,7 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (re
   response.json({ received: true });
 });
 
-
+////
 
 app.get('/get-user-id', authenticateToken, (req, res) => {
   // Assuming authenticateToken middleware adds a 'user' object to 'req'
