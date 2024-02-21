@@ -82,6 +82,31 @@ app.post('/create-subscription', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/cancel-subscription', authenticateToken, async (req, res) => {
+  const userId = req.user.id; // Assuming authenticateToken adds user info to req.user
+  try {
+    // Retrieve user's Stripe subscription ID from your database
+    const userResult = await pool.query('SELECT stripe_subscription_id FROM user_payments WHERE user_id = $1', [userId]);
+    const stripeSubscriptionId = userResult.rows[0]?.stripe_subscription_id;
+
+    if (!stripeSubscriptionId) {
+      return res.status(404).send('Stripe subscription not found for user');
+    }
+
+    // Cancel the subscription on Stripe
+    const canceledSubscription = await stripe.subscriptions.del(stripeSubscriptionId);
+
+    // Update your database to reflect the cancellation
+    await pool.query('UPDATE user_payments SET subscription_status = $1 WHERE stripe_subscription_id = $2', ['canceled', stripeSubscriptionId]);
+
+    // Respond to the client that the cancellation was successful
+    res.status(200).json({ message: 'Subscription cancelled successfully' });
+  } catch (err) {
+    console.error('Stripe cancellation error:', err);
+    res.status(500).send('Internal server error');
+  }
+});
+
 
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (request, response) => {
   const sigHeader = request.headers['stripe-signature'];
@@ -126,6 +151,7 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (re
 
   response.json({ received: true });
 });
+
 
 ////
 
