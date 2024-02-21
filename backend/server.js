@@ -94,7 +94,7 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
     }
 
     // Retrieve all subscriptions for the customer from Stripe
-    const subscriptions = await stripe.subscriptions.list({ customer: stripeCustomerId, status: 'active' });
+    const subscriptions = await stripe.subscriptions.list({ customer: stripeCustomerId, status: 'pending' });
     const subscriptionId = subscriptions.data[0]?.id; // Assuming the user will only have one active subscription
 
     if (!subscriptionId) {
