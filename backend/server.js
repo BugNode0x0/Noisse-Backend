@@ -8,11 +8,13 @@ const { Server } = require('socket.io');
 const axios = require('axios');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
+const Stripe = require('stripe');
 
 
 
 // CONFIG //
 require('dotenv').config(); 
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const corsOptions = {
@@ -52,6 +54,108 @@ io.on('connection', (socket) => {
     console.log('user disconnected');
   });
 });
+
+// Stripe Payments
+
+app.post('/create-subscription', authenticateToken, async (req, res) => {
+  const userId = req.user.id; // Assuming authenticateToken adds user info to req.user
+  try {
+    // Retrieve user's Stripe customer ID from your database
+    const userResult = await pool.query('SELECT stripe_customer_id FROM user_payments WHERE user_id = $1', [userId]);
+    const stripeCustomerId = userResult.rows[0]?.stripe_customer_id;
+
+    if (!stripeCustomerId) {
+      return res.status(404).send('Stripe customer not found for user');
+    }
+
+    // Create a subscription
+    const subscription = await stripe.subscriptions.create({
+      customer: stripeCustomerId,
+      items: [{ plan: 'price_1OmLFdEexrrszXdmYle8omB1' }], // Replace 'your-plan-id' with the ID of the plan you created on Stripe
+      expand: ['latest_invoice.payment_intent'],
+    });
+
+    res.send(subscription);
+  } catch (err) {
+    console.error('Stripe subscription error:', err);
+    res.status(500).send('Internal server error');
+  }
+});
+
+app.post('/create-subscription', authenticateToken, async (req, res) => {
+  // Retrieve the authenticated user's ID from the request
+  const userId = req.user.id;
+
+  try {
+    // Retrieve the Stripe customer ID from your database
+    const customerResult = await pool.query('SELECT stripe_customer_id FROM user_payments WHERE user_id = $1', [userId]);
+    const stripeCustomerId = customerResult.rows[0]?.stripe_customer_id;
+
+    if (!stripeCustomerId) {
+      return res.status(404).send('Stripe customer ID not found for user.');
+    }
+
+    // Create a subscription
+    const subscription = await stripe.subscriptions.create({
+      customer: stripeCustomerId,
+      items: [{ price: 'price_1OmLFdEexrrszXdmYle8omB1' }], // Replace with the correct price ID
+      expand: ['latest_invoice.payment_intent'], // To include the payment intent in the response
+    });
+
+    res.send({
+      subscriptionId: subscription.id,
+      clientSecret: subscription.latest_invoice.payment_intent.client_secret,
+    });
+  } catch (err) {
+    console.error('Stripe error:', err);
+    res.status(500).send('Internal server error');
+  }
+});
+
+app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (request, response) => {
+  const sigHeader = request.headers['stripe-signature'];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(request.body, sigHeader, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error(`Webhook Error: ${err.message}`);
+    return response.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    switch (event.type) {
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object;
+        // Update the subscription status in your database
+        await pool.query('UPDATE user_payments SET subscription_status = $1 WHERE stripe_customer_id = $2', [subscription.status, subscription.customer]);
+        break;
+      }
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object;
+        // Assuming you store subscription_id in user_payments, you can update the last payment date
+        await pool.query('UPDATE user_payments SET last_payment_date = NOW() WHERE stripe_subscription_id = $1', [invoice.subscription]);
+        break;
+      }
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object;
+        // Handle payment failure (e.g., mark as unpaid, notify user, etc.)
+        break;
+      }
+      // Handle other relevant events
+      default:
+        console.log(`Unhandled event type ${event.type}`);
+    }
+  } catch (err) {
+    console.error(`Error handling event ${event.type}`, err);
+    return response.status(500).send('Internal Server Error');
+  }
+
+  response.json({ received: true });
+});
+
 
 
 app.get('/get-user-id', authenticateToken, (req, res) => {
