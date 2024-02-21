@@ -64,6 +64,8 @@ app.post('/create-subscription', authenticateToken, async (req, res) => {
     const userResult = await pool.query('SELECT stripe_customer_id FROM user_payments WHERE user_id = $1', [userId]);
     const stripeCustomerId = userResult.rows[0]?.stripe_customer_id;
 
+    
+
     if (!stripeCustomerId) {
       return res.status(404).send('Stripe customer not found for user');
     }
@@ -74,6 +76,10 @@ app.post('/create-subscription', authenticateToken, async (req, res) => {
       items: [{ plan: 'price_1OmLFdEexrrszXdmYle8omB1' }], // Replace 'your-plan-id' with the ID of the plan you created on Stripe
       expand: ['latest_invoice.payment_intent'],
     });
+
+    if (subscription && subscription.status) {
+      await pool.query('UPDATE user_payments SET subscription_status = $1 WHERE user_id = $2', [subscription.status, userId]);
+    }
 
     res.send(subscription);
   } catch (err) {
@@ -114,8 +120,6 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
-
-
 
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (request, response) => {
   const sigHeader = request.headers['stripe-signature'];
