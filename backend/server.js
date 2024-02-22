@@ -200,7 +200,7 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
       customer: stripeCustomerId,
       line_items: [
         {
-          price: 'price_1OmOtDEexrrszXdmtFmKVIWb', // Replace with your price ID
+          price: 'price_1OmOtDEexrrszXdmtFmKVIWb',
           quantity: 1,
         },
       ],
@@ -209,7 +209,7 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
       cancel_url: `https://dev-noisse.vercel.app/payment-cancelled`,
     });
 
-    res.json({ sessionId: session.id });
+    res.json({ sessionId: session.url });
   } catch (err) {
     console.error('Error creating checkout session:', err);
     res.status(500).send('Internal Server Error');
