@@ -247,23 +247,6 @@ app.get('/get-user-id', authenticateToken, (req, res) => {
   }
 });
 
-
-app.get('/db-check', authenticateToken, async (req, res) => {
-  try {
-    // Try to get a connection from the pool
-    const client = await pool.connect();
-
-    // If successful, release the client back to the pool and send a success response
-    client.release();
-    res.status(200).send('Database connection is successful');
-  } catch (err) {
-    // If an error occurs, send an error response
-    console.error('Database connection error:', err);
-    res.status(500).send('Failed to connect to the database');
-  }
-});
-
-
 ///
 app.post('/domains/enumerate', authenticateToken, checkSubscription, async (req, res) => {
   const { domain } = req.body;
@@ -301,7 +284,7 @@ app.post('/domains/enumerate', authenticateToken, checkSubscription, async (req,
 });
 
 
-app.get('/domains/count', authenticateToken, async (req, res) => {
+app.get('/domains/count', authenticateToken, checkSubscription, async (req, res) => {
   const interval = req.query.interval || 'week';
   const hunterId = req.user.id; // Extract hunter_id from JWT token
 
@@ -337,9 +320,8 @@ app.get('/domains/count', authenticateToken, async (req, res) => {
   }
 });
 
-
 // Get all subdomains for a domain (CHECK BEFORE USE)
-app.get('/domains/:domain', authenticateToken, async (req, res) => {
+app.get('/domains/:domain', authenticateToken, checkSubscription, async (req, res) => {
 
   const { domain } = req.params;
   const page = parseInt(req.query.page) || 1; // Default to page 1 if not specified
@@ -370,7 +352,7 @@ app.get('/domains/:domain', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/active-domains/count', authenticateToken, async (req, res) => {
+app.get('/active-domains/count', authenticateToken, checkSubscription, async (req, res) => {
   const interval = req.query.interval || 'week';
   const hunterId = req.user.id; // Extract hunter_id from JWT token
 
@@ -407,7 +389,7 @@ app.get('/active-domains/count', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/web-domains/count', authenticateToken, async (req, res) => {
+app.get('/web-domains/count', authenticateToken, checkSubscription, async (req, res) => {
   const interval = req.query.interval || 'week';
   const hunterId = req.user.id; // Extract hunter_id from JWT token
 
@@ -444,7 +426,7 @@ app.get('/web-domains/count', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/assets-ips/count', authenticateToken, async (req, res) => {
+app.get('/assets-ips/count', authenticateToken, checkSubscription, async (req, res) => {
   const interval = req.query.interval || 'week';
   const hunterId = req.user.id; // Extract hunter_id from JWT token
 
@@ -483,7 +465,7 @@ app.get('/assets-ips/count', authenticateToken, async (req, res) => {
 
 
 //  GATHER DOMAINS
-app.get('/subdomains', authenticateToken, async (req, res) => {
+app.get('/subdomains', authenticateToken, checkSubscription, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search ? `%${req.query.search}%` : '%';
@@ -523,7 +505,7 @@ app.get('/subdomains', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/active-domains', authenticateToken, async (req, res) => {
+app.get('/active-domains', authenticateToken, checkSubscription, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search ? `%${req.query.search}%` : '%';
@@ -563,7 +545,7 @@ app.get('/active-domains', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/web-domains', authenticateToken, async (req, res) => {
+app.get('/web-domains', authenticateToken, checkSubscription, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search ? `%${req.query.search}%` : '%';
@@ -618,7 +600,7 @@ app.get('/web-domains', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/assets-ips', authenticateToken, async (req, res) => {
+app.get('/assets-ips', authenticateToken, checkSubscription, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search ? `%${req.query.search}%` : '%';
@@ -658,7 +640,7 @@ app.get('/assets-ips', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/webview', authenticateToken, async (req, res) => {
+app.get('/webview', authenticateToken, checkSubscription, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search ? `%${req.query.search}%` : '%';
@@ -732,7 +714,7 @@ app.get('/webview', authenticateToken, async (req, res) => {
 });
 
 
-app.get('/jsview', authenticateToken, async (req, res) => {
+app.get('/jsview', authenticateToken, checkSubscription, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search ? `%${req.query.search}%` : '%';
