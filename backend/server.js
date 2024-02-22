@@ -1,5 +1,6 @@
 const express = require('express');
 const authenticateToken = require('./authMiddleware');
+const checkSubscription = require('./checkSubscription');
 const { Pool } = require('pg');
 const cors = require('cors');
 const { exec } = require('child_process');
@@ -264,7 +265,7 @@ app.get('/db-check', authenticateToken, async (req, res) => {
 
 
 ///
-app.post('/domains/enumerate', async (req, res) => {
+app.post('/domains/enumerate', authenticateToken, checkSubscription, async (req, res) => {
   const { domain } = req.body;
   const token = req.cookies.token; // Assuming you're using cookie-parser
 
