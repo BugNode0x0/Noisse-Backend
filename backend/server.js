@@ -205,10 +205,7 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
       ],
       mode: 'subscription',
       success_url: `https://dev-noisse.vercel.app/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `https://dev-noisse.vercel.app/payment-cancelled`,
-      payment_intent_data: {
-        setup_future_usage: 'off_session',
-      },
+      cancel_url: `https://dev-noisse.vercel.app/payment-cancelled`
     });
 
     res.json({ sessionId: session.url });
@@ -220,7 +217,7 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
 
 app.post('/finalize-subscription', authenticateToken, async (req, res) => {
   const hunterId = req.user.id;
-
+  
   // Retrieve user_id using hunter_id
   const userResult = await pool.query('SELECT user_id FROM users WHERE hunter_id = $1', [hunterId]);
   const userId = userResult.rows[0]?.user_id;
@@ -246,6 +243,7 @@ app.post('/finalize-subscription', authenticateToken, async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
+
 
 
 ////
