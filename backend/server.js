@@ -59,11 +59,13 @@ io.on('connection', (socket) => {
 
 app.post('/create-subscription', authenticateToken, async (req, res) => {
   const hunterId = req.user.id; // This is the hunter_id from the token
+  console.log('Hunter ID:', hunterId);
 
   try {
     // First, get the numerical user_id from the users table using hunter_id
     const userQueryResult = await pool.query('SELECT user_id FROM users WHERE hunter_id = $1', [hunterId]);
     const userId = userQueryResult.rows[0]?.user_id;
+    console.log('User ID:', userId);
 
     if (!userId) {
       return res.status(404).send('User not found');
@@ -72,6 +74,7 @@ app.post('/create-subscription', authenticateToken, async (req, res) => {
     // Now, retrieve the user's Stripe customer ID using the numerical user_id
     const customerQueryResult = await pool.query('SELECT stripe_customer_id FROM user_payments WHERE user_id = $1', [userId]);
     const stripeCustomerId = customerQueryResult.rows[0]?.stripe_customer_id;
+    console.log('Stripe Customer ID:', stripeCustomerId);
 
     if (!stripeCustomerId) {
       return res.status(404).send('Stripe customer not found for user');
@@ -83,6 +86,7 @@ app.post('/create-subscription', authenticateToken, async (req, res) => {
       items: [{ plan: 'price_1OmOtDEexrrszXdmtFmKVIWb' }],
       expand: ['latest_invoice.payment_intent'],
     });
+    console.log('Subscription:', subscription);
 
     // Update the user_payments table with the subscription status
     if (subscription && subscription.status) {
