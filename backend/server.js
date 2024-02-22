@@ -57,48 +57,6 @@ io.on('connection', (socket) => {
 
 // Stripe Payments
 
-app.post('/create-subscription', authenticateToken, async (req, res) => {
-  const hunterId = req.user.id; // This is the hunter_id from the token
-  console.log('Hunter ID:', hunterId);
-
-  try {
-    // First, get the numerical user_id from the users table using hunter_id
-    const userQueryResult = await pool.query('SELECT user_id FROM users WHERE hunter_id = $1', [hunterId]);
-    const userId = userQueryResult.rows[0]?.user_id;
-    console.log('User ID:', userId);
-
-    if (!userId) {
-      return res.status(404).send('User not found');
-    }
-
-    // Now, retrieve the user's Stripe customer ID using the numerical user_id
-    const customerQueryResult = await pool.query('SELECT stripe_customer_id FROM user_payments WHERE user_id = $1', [userId]);
-    const stripeCustomerId = customerQueryResult.rows[0]?.stripe_customer_id;
-    console.log('Stripe Customer ID:', stripeCustomerId);
-
-    if (!stripeCustomerId) {
-      return res.status(404).send('Stripe customer not found for user');
-    }
-
-    // Create the subscription
-    const subscription = await stripe.subscriptions.create({
-      customer: stripeCustomerId,
-      items: [{ plan: 'price_1OmOtDEexrrszXdmtFmKVIWb' }],
-      expand: ['latest_invoice.payment_intent'],
-    });
-    console.log('Subscription:', subscription);
-
-    // Update the user_payments table with the subscription status
-    if (subscription && subscription.status) {
-      await pool.query('UPDATE user_payments SET subscription_status = $1 WHERE user_id = $2', [subscription.status, userId]);
-    }
-
-    res.send(subscription);
-  } catch (err) {
-    console.error('Stripe subscription error:', err);
-    res.status(500).send('Internal server error');
-  }
-});
 
 app.post('/cancel-subscription', authenticateToken, async (req, res) => {
   const userId = req.user.id; // Assuming authenticateToken adds user info to req.user
@@ -112,7 +70,7 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
     }
 
     // Retrieve all subscriptions for the customer from Stripe
-    const subscriptions = await stripe.subscriptions.list({ customer: stripeCustomerId, status: 'pending' });
+    const subscriptions = await stripe.subscriptions.list({ customer: stripeCustomerId, status: 'active' });
     const subscriptionId = subscriptions.data[0]?.id; // Assuming the user will only have one active subscription
 
     if (!subscriptionId) {
@@ -247,6 +205,24 @@ app.post('/finalize-subscription', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/subscription-status', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;  // Assuming you have the user's ID in req.user
+
+    // Query the database for the user's subscription status
+    const result = await pool.query('SELECT subscription_status FROM user_payments WHERE user_id = $1', [userId]);
+    
+    if (result.rows.length > 0) {
+      const isSubscribed = result.rows[0].subscription_status === 'active';
+      res.json({ isSubscribed });
+    } else {
+      res.status(404).send('Subscription information not found.');
+    }
+  } catch (error) {
+    console.error('Error fetching subscription status:', error);
+    res.status(500).send('Internal server error');
+  }
+});
 
 
 ////
