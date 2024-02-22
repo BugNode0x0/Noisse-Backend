@@ -58,25 +58,33 @@ io.on('connection', (socket) => {
 // Stripe Payments
 
 app.post('/create-subscription', authenticateToken, async (req, res) => {
-  const userId = req.user.id; // Assuming authenticateToken adds user info to req.user
-  try {
-    // Retrieve user's Stripe customer ID from your database
-    const userResult = await pool.query('SELECT stripe_customer_id FROM user_payments WHERE user_id = $1', [userId]);
-    const stripeCustomerId = userResult.rows[0]?.stripe_customer_id;
+  const hunterId = req.user.id; // This is the hunter_id from the token
 
-    
+  try {
+    // First, get the numerical user_id from the users table using hunter_id
+    const userQueryResult = await pool.query('SELECT user_id FROM users WHERE hunter_id = $1', [hunterId]);
+    const userId = userQueryResult.rows[0]?.user_id;
+
+    if (!userId) {
+      return res.status(404).send('User not found');
+    }
+
+    // Now, retrieve the user's Stripe customer ID using the numerical user_id
+    const customerQueryResult = await pool.query('SELECT stripe_customer_id FROM user_payments WHERE user_id = $1', [userId]);
+    const stripeCustomerId = customerQueryResult.rows[0]?.stripe_customer_id;
 
     if (!stripeCustomerId) {
       return res.status(404).send('Stripe customer not found for user');
     }
 
-    // Create a subscription
+    // Create the subscription
     const subscription = await stripe.subscriptions.create({
       customer: stripeCustomerId,
-      items: [{ plan: 'price_1OmOtDEexrrszXdmtFmKVIWb' }], // Replace 'your-plan-id' with the ID of the plan you created on Stripe
+      items: [{ plan: 'price_1OmOtDEexrrszXdmtFmKVIWb' }],
       expand: ['latest_invoice.payment_intent'],
     });
 
+    // Update the user_payments table with the subscription status
     if (subscription && subscription.status) {
       await pool.query('UPDATE user_payments SET subscription_status = $1 WHERE user_id = $2', [subscription.status, userId]);
     }
@@ -87,6 +95,7 @@ app.post('/create-subscription', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
+
 
 app.post('/cancel-subscription', authenticateToken, async (req, res) => {
   const userId = req.user.id; // Assuming authenticateToken adds user info to req.user
