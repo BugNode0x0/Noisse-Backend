@@ -73,7 +73,7 @@ app.post('/create-subscription', authenticateToken, async (req, res) => {
     // Create a subscription
     const subscription = await stripe.subscriptions.create({
       customer: stripeCustomerId,
-      items: [{ plan: 'price_1OmLFdEexrrszXdmYle8omB1' }], // Replace 'your-plan-id' with the ID of the plan you created on Stripe
+      items: [{ plan: 'price_1OmOtDEexrrszXdmtFmKVIWb' }], // Replace 'your-plan-id' with the ID of the plan you created on Stripe
       expand: ['latest_invoice.payment_intent'],
     });
 
@@ -126,40 +126,36 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (re
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(request.body, sigHeader, process.env.STRIPE_WEBHOOK_SECRET);
+      event = stripe.webhooks.constructEvent(request.body, sigHeader, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
-    console.error(`Webhook Error: ${err.message}`);
-    return response.status(400).send(`Webhook Error: ${err.message}`);
+      console.error(`Webhook Error: ${err.message}`);
+      return response.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   try {
-    switch (event.type) {
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object;
-        // Update the subscription status in your database
-        await pool.query('UPDATE user_payments SET subscription_status = $1 WHERE stripe_customer_id = $2', [subscription.status, subscription.customer]);
-        break;
+      switch (event.type) {
+          case 'customer.subscription.created':
+          case 'customer.subscription.updated':
+          case 'customer.subscription.deleted':
+              const subscription = event.data.object;
+              // Update the subscription status in your database
+              await pool.query('UPDATE user_payments SET subscription_status = $1 WHERE stripe_customer_id = $2', [subscription.status, subscription.customer]);
+              break;
+          case 'invoice.payment_succeeded':
+              const invoice = event.data.object;
+              // Update last_payment_date only when payment succeeds
+              await pool.query('UPDATE user_payments SET last_payment_date = NOW() WHERE stripe_customer_id = $1', [invoice.customer]);
+              break;
+          case 'invoice.payment_failed':
+              // You can handle payment failure logic here
+              break;
+          // Add more cases as needed for other events
+          default:
+              console.log(`Unhandled event type ${event.type}`);
       }
-      case 'invoice.payment_succeeded': {
-        const invoice = event.data.object;
-        // Assuming you store subscription_id in user_payments, you can update the last payment date
-        await pool.query('UPDATE user_payments SET last_payment_date = NOW() WHERE stripe_subscription_id = $1', [invoice.subscription]);
-        break;
-      }
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object;
-        // Handle payment failure (e.g., mark as unpaid, notify user, etc.)
-        break;
-      }
-      // Handle other relevant events
-      default:
-        console.log(`Unhandled event type ${event.type}`);
-    }
   } catch (err) {
-    console.error(`Error handling event ${event.type}`, err);
-    return response.status(500).send('Internal Server Error');
+      console.error(`Error handling event ${event.type}: ${err.message}`, err);
+      return response.status(500).send('Internal Server Error');
   }
 
   response.json({ received: true });
