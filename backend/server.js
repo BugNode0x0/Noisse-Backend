@@ -174,6 +174,47 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (re
   response.json({ received: true });
 });
 
+app.post('/create-checkout-session', authenticateToken, async (req, res) => {
+  try {
+    const hunterId = req.user.id; // Get WorkOS ID from authenticated user
+
+    // Query the users table to get user_id
+    const userResult = await pool.query('SELECT user_id FROM users WHERE hunter_id = $1', [hunterId]);
+    const userId = userResult.rows[0]?.user_id;
+
+    if (!userId) {
+      return res.status(404).send('User not found');
+    }
+
+    // Query the user_payments table to get stripe_customer_id
+    const paymentResult = await pool.query('SELECT stripe_customer_id FROM user_payments WHERE user_id = $1', [userId]);
+    const stripeCustomerId = paymentResult.rows[0]?.stripe_customer_id;
+
+    if (!stripeCustomerId) {
+      return res.status(404).send('Stripe customer not found for user');
+    }
+
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      customer: stripeCustomerId,
+      line_items: [
+        {
+          price: 'price_1OmOtDEexrrszXdmtFmKVIWb', // Replace with your price ID
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
+      success_url: `https://dev-noisse.vercel.app/payment-success`,
+      cancel_url: `https://dev-noisse.vercel.app/payment-cancelled`,
+    });
+
+    res.json({ sessionId: session.id });
+  } catch (err) {
+    console.error('Error creating checkout session:', err);
+    res.status(500).send('Internal Server Error');
+  }
+});
 
 ////
 
