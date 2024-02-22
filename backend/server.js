@@ -207,10 +207,17 @@ app.post('/finalize-subscription', authenticateToken, async (req, res) => {
 
 app.get('/subscription-status', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;  // Assuming you have the user's ID in req.user
+    const hunterId = req.user.id; // The hunter_id from the users table
 
-    // Query the database for the user's subscription status
-    const result = await pool.query('SELECT subscription_status FROM user_payments WHERE user_id = $1', [userId]);
+    // Query the database for the user's subscription status by joining the users table
+    const query = `
+      SELECT up.subscription_status 
+      FROM user_payments up
+      INNER JOIN users u ON up.user_id = u.user_id
+      WHERE u.hunter_id = $1;
+    `;
+
+    const result = await pool.query(query, [hunterId]);
     
     if (result.rows.length > 0) {
       const isSubscribed = result.rows[0].subscription_status === 'active';
@@ -223,6 +230,7 @@ app.get('/subscription-status', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
+
 
 
 ////
