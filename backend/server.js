@@ -100,7 +100,6 @@ app.post('/create-subscription', authenticateToken, async (req, res) => {
   }
 });
 
-
 app.post('/cancel-subscription', authenticateToken, async (req, res) => {
   const userId = req.user.id; // Assuming authenticateToken adds user info to req.user
   try {
@@ -205,8 +204,11 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
         },
       ],
       mode: 'subscription',
-      success_url: `https://dev-noisse.vercel.app/payment-success`,
+      success_url: `https://dev-noisse.vercel.app/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `https://dev-noisse.vercel.app/payment-cancelled`,
+      payment_intent_data: {
+        setup_future_usage: 'off_session',
+      },
     });
 
     res.json({ sessionId: session.url });
@@ -215,6 +217,36 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
+
+app.post('/finalize-subscription', authenticateToken, async (req, res) => {
+  const hunterId = req.user.id;
+
+  // Retrieve user_id using hunter_id
+  const userResult = await pool.query('SELECT user_id FROM users WHERE hunter_id = $1', [hunterId]);
+  const userId = userResult.rows[0]?.user_id;
+
+  if (!userId) {
+    return res.status(404).send('User not found');
+  }
+
+  // Assuming the checkout session ID is passed in the request body
+  const sessionId = req.body.sessionId;
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (session.payment_status === 'paid') {
+      // Update subscription status in the database
+      await pool.query('UPDATE user_payments SET subscription_status = $1 WHERE user_id = $2', ['active', userId]);
+      res.json({ message: 'Subscription activated successfully' });
+    } else {
+      res.status(400).send('Payment not successful');
+    }
+  } catch (err) {
+    console.error('Error in /finalize-subscription:', err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 
 ////
 
