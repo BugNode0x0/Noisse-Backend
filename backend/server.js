@@ -228,6 +228,9 @@ app.post('/finalize-subscription', authenticateToken, async (req, res) => {
 
   // Assuming the checkout session ID is passed in the request body
   const sessionId = req.body.sessionId;
+  if (!sessionId) {
+    return res.status(400).send('Session ID is missing');
+  }
 
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
