@@ -169,15 +169,16 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       customer: stripeCustomerId,
-      line_items: [
-        {
-          price: 'price_1OmqzqEexrrszXdmQu9X9ACY',
-          quantity: 1,
-        },
-      ],
+      line_items: [{
+        price: 'price_1OmOtDEexrrszXdmtFmKVIWb', // Your price ID
+        quantity: 1,
+      }],
+      subscription_data: {
+        trial_period_days: 7, // Set the trial period to 7 days
+      },
       mode: 'subscription',
       success_url: `https://dev-noisse.vercel.app/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `https://dev-noisse.vercel.app/payment-cancelled`
+      cancel_url: `https://dev-noisse.vercel.app/payment-cancelled`,
     });
 
     res.json({ sessionId: session.url });
@@ -186,6 +187,7 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
+
 
 app.post('/finalize-subscription', authenticateToken, async (req, res) => {
   const hunterId = req.user.id;
