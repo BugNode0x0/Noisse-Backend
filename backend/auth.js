@@ -56,22 +56,45 @@ router.get('/auth', (_req, res) => {
 
 
 router.get('/callback', async (req, res) => {
-
     const code = req.query.code;
   
-    const { user } = await workos.userManagement.authenticateWithCode({
-      code,
-      clientId,
-    });
-
-    const token = await new SignJWT({
-        user,
-      })
+    try {
+      // Authenticate with WorkOS and get user data
+      const { user } = await workos.userManagement.authenticateWithCode({
+        code,
+        clientId,
+      });
+  
+      // Check if the user exists in the 'users' table
+      let userResult = await pool.query('SELECT user_id FROM users WHERE hunter_id = $1', [user.id]);
+      let userId = userResult.rows[0]?.user_id;
+  
+      // If the user doesn't exist, create a new user in the 'users' table
+      if (!userId) {
+        const insertUserResult = await pool.query('INSERT INTO users (hunter_id, email) VALUES ($1, $2) RETURNING user_id', [user.id, user.email]);
+        userId = insertUserResult.rows[0].user_id;
+      }
+  
+      // Check if the user has a Stripe customer ID in the 'user_payments' table
+      let paymentResult = await pool.query('SELECT stripe_customer_id FROM user_payments WHERE user_id = $1', [userId]);
+      let stripeCustomerId = paymentResult.rows[0]?.stripe_customer_id;
+  
+      // If not, create a new Stripe customer
+      if (!stripeCustomerId) {
+        const stripeCustomer = await stripe.customers.create({ email: user.email });
+        stripeCustomerId = stripeCustomer.id;
+  
+        // Insert or update the Stripe customer ID in 'user_payments' table
+        await pool.query('INSERT INTO user_payments (user_id, stripe_customer_id, subscription_status) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET stripe_customer_id = EXCLUDED.stripe_customer_id', [userId, stripeCustomerId, 'pending']);
+      }
+  
+      // Create JWT token
+      const token = await new SignJWT({ user })
         .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
         .setIssuedAt()
         .setExpirationTime('1h')
         .sign(secret);
-    
+  
       // Store in a cookie
       res.cookie('token', token, {
         path: '/',
@@ -79,9 +102,15 @@ router.get('/callback', async (req, res) => {
         secure: true,
         sameSite: 'None',
       });
-
-    res.redirect('https://dev-noisse.vercel.app');
+  
+      // Redirect the user
+      res.redirect('https://dev-noisse.vercel.app');
+    } catch (error) {
+      console.error('Error in /callback:', error);
+      res.status(500).send('Internal server error');
+    }
   });
+  
 
 
 
