@@ -175,6 +175,7 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
       subscription_data: {
         trial_period_days: 7, // Set the trial period to 7 days
       },
+      allow_promotion_codes: true,
       mode: 'subscription',
       success_url: `https://dev-noisse.vercel.app/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `https://dev-noisse.vercel.app/payment-cancelled`,
