@@ -103,8 +103,6 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
   }
 });
 
-
-
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (request, response) => {
   const sigHeader = request.headers['stripe-signature'];
   let event;
@@ -148,6 +146,7 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (re
 app.post('/create-checkout-session', authenticateToken, async (req, res) => {
   try {
     const hunterId = req.user.id; // Get WorkOS ID from authenticated user
+    const { couponCode } = req.body;
 
     // Query the users table to get user_id
     const userResult = await pool.query('SELECT user_id FROM users WHERE hunter_id = $1', [hunterId]);
@@ -165,8 +164,8 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
       return res.status(404).send('Stripe customer not found for user');
     }
 
-    // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
+    // Prepare session parameters
+    const sessionParams = {
       payment_method_types: ['card'],
       customer: stripeCustomerId,
       line_items: [{
@@ -179,7 +178,15 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
       mode: 'subscription',
       success_url: `https://dev-noisse.vercel.app/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `https://dev-noisse.vercel.app/payment-cancelled`,
-    });
+    };
+
+    // Add coupon code if provided
+    if (couponCode) {
+      sessionParams.subscription_data.discounts = [{coupon: couponCode}];
+    }
+
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     res.json({ sessionId: session.url });
   } catch (err) {
@@ -187,6 +194,7 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
+
 
 
 app.post('/finalize-subscription', authenticateToken, async (req, res) => {
