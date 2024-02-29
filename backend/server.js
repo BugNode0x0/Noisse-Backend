@@ -4,6 +4,7 @@ const checkSubscription = require('./checkSubscription');
 const { Pool } = require('pg');
 const cors = require('cors');
 const { exec } = require('child_process');
+const { Parser } = require('json2csv');
 const { createServer } = require('http'); // Ensure this is at the top with other requires
 const { Server } = require('socket.io');
 const axios = require('axios');
@@ -497,12 +498,15 @@ app.get('/assets-ips/count', authenticateToken, checkSubscription, async (req, r
 
 
 //  GATHER DOMAINS
+const { Parser } = require('json2csv');
+
 app.get('/subdomains', authenticateToken, checkSubscription, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search ? `%${req.query.search}%` : '%';
   const offset = (page - 1) * pageSize;
   const hunterId = req.user.id; // Extract hunter_id from JWT token
+  const format = req.query.format;
 
   try {
     let countQuery = `
@@ -525,6 +529,20 @@ app.get('/subdomains', authenticateToken, checkSubscription, async (req, res) =>
     const countResult = await pool.query(countQuery, [hunterId, search]);
     const result = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
 
+    if (format === 'csv') {
+      // Convert result.rows to CSV
+      try {
+        const parser = new Parser();
+        const csvData = parser.parse(result.rows);
+        res.header('Content-Type', 'text/csv');
+        res.attachment('subdomains.csv');
+        return res.send(csvData);
+      } catch (err) {
+        console.error('Error converting to CSV:', err);
+        return res.status(500).send('Internal Server Error');
+      }
+    }
+
     res.status(200).json({
       subdomains: result.rows,
       total: parseInt(countResult.rows[0].count),
@@ -542,16 +560,10 @@ app.get('/active-domains', authenticateToken, checkSubscription, async (req, res
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search ? `%${req.query.search}%` : '%';
   const offset = (page - 1) * pageSize;
-  const hunterId = req.user.id; // Extract hunter_id from JWT token
+  const hunterId = req.user.id;
+  const format = req.query.format;
 
   try {
-    const countQuery = `
-      SELECT COUNT(DISTINCT dr.subdomain)
-      FROM dns_results dr
-      INNER JOIN user_subdomain us ON dr.subdomain_id = us.subdomain_id
-      INNER JOIN users u ON us.user_id = u.user_id
-      WHERE u.hunter_id = $1
-        AND dr.subdomain ILIKE $2`;
     const selectQuery = `
       SELECT DISTINCT dr.subdomain
       FROM dns_results dr
@@ -559,11 +571,29 @@ app.get('/active-domains', authenticateToken, checkSubscription, async (req, res
       INNER JOIN users u ON us.user_id = u.user_id
       WHERE u.hunter_id = $1
         AND dr.subdomain ILIKE $2
-      ORDER BY dr.subdomain
-      LIMIT $3 OFFSET $4`;
+      ORDER BY dr.subdomain`;
+
+    if (format === 'csv') {
+      const result = await pool.query(selectQuery, [hunterId, search]);
+      const parser = new Parser();
+      const csvData = parser.parse(result.rows);
+      res.header('Content-Type', 'text/csv');
+      res.attachment('active-domains.csv');
+      return res.send(csvData);
+    }
+
+    // Paginated query for non-CSV requests
+    const paginatedQuery = `${selectQuery} LIMIT $3 OFFSET $4`;
+    const countQuery = `
+      SELECT COUNT(DISTINCT dr.subdomain)
+      FROM dns_results dr
+      INNER JOIN user_subdomain us ON dr.subdomain_id = us.subdomain_id
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE u.hunter_id = $1
+        AND dr.subdomain ILIKE $2`;
 
     const countResult = await pool.query(countQuery, [hunterId, search]);
-    const result = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
+    const result = await pool.query(paginatedQuery, [hunterId, search, pageSize, offset]);
 
     res.status(200).json({
       activeDomains: result.rows,
@@ -582,7 +612,8 @@ app.get('/web-domains', authenticateToken, checkSubscription, async (req, res) =
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search ? `%${req.query.search}%` : '%';
   const offset = (page - 1) * pageSize;
-  const hunterId = req.user.id; // Extract hunter_id from JWT token
+  const hunterId = req.user.id;
+  const format = req.query.format;
 
   try {
     const selectQuery = `
@@ -601,6 +632,18 @@ app.get('/web-domains', authenticateToken, checkSubscription, async (req, res) =
       )
       ORDER BY hr.url
       LIMIT $3 OFFSET $4`;
+
+    if (format === 'csv') {
+      // Fetch all data for CSV
+      const selectResult = await pool.query(selectQuery, [hunterId, search, 1000000, 0]);
+      const parser = new Parser({
+        fields: ['url', 'title', 'status_code', 'content_length', 'webserver', 'tech']
+      });
+      const csvData = parser.parse(selectResult.rows);
+      res.header('Content-Type', 'text/csv');
+      res.attachment('web-domains.csv');
+      return res.send(csvData);
+    }
 
     const countQuery = `
       SELECT COUNT(DISTINCT hr.url)
@@ -744,7 +787,6 @@ app.get('/webview', authenticateToken, checkSubscription, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
-
 
 app.get('/jsview', authenticateToken, checkSubscription, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
