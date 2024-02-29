@@ -76,7 +76,7 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
       return res.status(404).send('Stripe customer not found for user');
     }
 
-    // Retrieve all active subscriptions for the customer from Stripe
+    // Retrieve all subscriptions (active and trialing) for the customer from Stripe
     const subscriptions = await stripe.subscriptions.list({
       customer: stripeCustomerId,
       status: 'all', // Changed from 'active' to 'all' to debug
@@ -85,14 +85,17 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
 
     console.log('Subscriptions:', subscriptions.data); // Added log
 
-    const activeSubscription = subscriptions.data.find(sub => sub.status === 'active');
+    // Find an active or trialing subscription
+    const subscriptionToCancel = subscriptions.data.find(sub => 
+      sub.status === 'active' || sub.status === 'trialing'
+    );
 
-    if (!activeSubscription) {
-      return res.status(404).send('Active Stripe subscription not found for user');
+    if (!subscriptionToCancel) {
+      return res.status(404).send('Active or trialing Stripe subscription not found for user');
     }
 
     // Cancel the subscription on Stripe
-    await stripe.subscriptions.del(activeSubscription.id); // Changed to .del as per Stripe API
+    await stripe.subscriptions.del(subscriptionToCancel.id); // Changed to .del as per Stripe API
 
     // Update your database to reflect the cancellation
     await pool.query(
@@ -107,7 +110,6 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
-
 
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (request, response) => {
   const sigHeader = request.headers['stripe-signature'];
@@ -203,30 +205,39 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
 });
 
 app.post('/finalize-subscription', authenticateToken, async (req, res) => {
-  const hunterId = req.user.id;
-  
-  // Retrieve user_id using hunter_id
-  const userResult = await pool.query('SELECT user_id FROM users WHERE hunter_id = $1', [hunterId]);
-  const userId = userResult.rows[0]?.user_id;
-
-  if (!userId) {
-    return res.status(404).send('User not found');
-  }
-
-  // Assuming the checkout session ID is passed in the request body
-  const sessionId = req.body.sessionId;
-  if (!sessionId) {
-    return res.status(400).send('Session ID is missing');
-  }
+  const hunterId = req.user.id;  // This is the hunter_id from the users table
 
   try {
+    // Retrieve user_id using hunter_id
+    const userResult = await pool.query('SELECT user_id FROM users WHERE hunter_id = $1', [hunterId]);
+    const userId = userResult.rows[0]?.user_id;
+
+    if (!userId) {
+      return res.status(404).send('User not found');
+    }
+
+    // Assuming the checkout session ID is passed in the request body
+    const sessionId = req.body.sessionId;
+    if (!sessionId) {
+      return res.status(400).send('Session ID is missing');
+    }
+
+    // Retrieve the session to check its status
     const session = await stripe.checkout.sessions.retrieve(sessionId);
-    if (session.payment_status === 'paid') {
-      // Update subscription status in the database
-      await pool.query('UPDATE user_payments SET subscription_status = $1 WHERE user_id = $2', ['active', userId]);
-      res.json({ message: 'Subscription activated successfully' });
+
+    // Check if the session has a subscription with a status of 'active' or in 'trial'
+    if (session.subscription) {
+      const subscription = await stripe.subscriptions.retrieve(session.subscription);
+
+      if (subscription.status === 'active' || subscription.status === 'trialing') {
+        // Update subscription status in the database
+        await pool.query('UPDATE user_payments SET subscription_status = $1 WHERE user_id = $2', [subscription.status, userId]);
+        res.json({ message: 'Subscription updated successfully', status: subscription.status });
+      } else {
+        res.status(400).send('Subscription not active or trialing');
+      }
     } else {
-      res.status(400).send('Payment not successful');
+      res.status(400).send('No subscription associated with this session');
     }
   } catch (err) {
     console.error('Error in /finalize-subscription:', err);
