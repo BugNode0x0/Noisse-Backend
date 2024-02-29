@@ -70,32 +70,26 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
     );
     const stripeCustomerId = customerQueryResult.rows[0]?.stripe_customer_id;
 
-    console.log('Stripe Customer ID:', stripeCustomerId); // Added log
-
     if (!stripeCustomerId) {
       return res.status(404).send('Stripe customer not found for user');
     }
 
-    // Retrieve all subscriptions (active and trialing) for the customer from Stripe
+    // Retrieve all active subscriptions for the customer from Stripe
     const subscriptions = await stripe.subscriptions.list({
       customer: stripeCustomerId,
-      status: 'all', // Changed from 'active' to 'all' to debug
-      limit: 1, // Add a limit to the query to only fetch one for simplicity
+      status: 'active'
     });
+    const subscriptionId = subscriptions.data[0]?.id; // Assuming the user will only have one active subscription
 
-    console.log('Subscriptions:', subscriptions.data); // Added log
-
-    // Find an active or trialing subscription
-    const subscriptionToCancel = subscriptions.data.find(sub => 
-      sub.status === 'active' || sub.status === 'trialing'
-    );
-
-    if (!subscriptionToCancel) {
-      return res.status(404).send('Active or trialing Stripe subscription not found for user');
+    if (!subscriptionId) {
+      return res.status(404).send('Active Stripe subscription not found for user');
     }
 
-    // Cancel the subscription on Stripe
-    await stripe.subscriptions.del(subscriptionToCancel.id); // Changed to .del as per Stripe API
+    // Cancel the subscription on Stripe immediately
+    await stripe.subscriptions.del(subscriptionId);
+
+    // Or, to cancel at the end of the current billing period, use:
+    // await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
 
     // Update your database to reflect the cancellation
     await pool.query(
@@ -110,6 +104,7 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
+
 
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (request, response) => {
   const sigHeader = request.headers['stripe-signature'];
@@ -245,48 +240,30 @@ app.post('/finalize-subscription', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/cancel-subscription', authenticateToken, async (req, res) => {
-  const hunterId = req.user.id; // This is the hunter_id from the users table
-
+app.get('/subscription-status', authenticateToken, async (req, res) => {
   try {
-    // Retrieve user's Stripe customer ID from your database
-    const customerQueryResult = await pool.query(
-      'SELECT stripe_customer_id FROM user_payments WHERE user_id = (SELECT user_id FROM users WHERE hunter_id = $1)',
-      [hunterId]
-    );
-    const stripeCustomerId = customerQueryResult.rows[0]?.stripe_customer_id;
+    const hunterId = req.user.id; // The hunter_id from the users table
 
-    if (!stripeCustomerId) {
-      return res.status(404).send('Stripe customer not found for user');
+    // Query the database for the user's subscription status by joining the users table
+    const query = `
+      SELECT up.subscription_status 
+      FROM user_payments up
+      INNER JOIN users u ON up.user_id = u.user_id
+      WHERE u.hunter_id = $1;
+    `;
+
+    const result = await pool.query(query, [hunterId]);
+    
+    if (result.rows.length > 0) {
+      // Check for both active and trialing statuses
+      const status = result.rows[0].subscription_status;
+      const isSubscribed = status === 'active' || status === 'trialing';
+      res.json({ isSubscribed, status }); // Send back the status as well for more detailed frontend logic if needed
+    } else {
+      res.status(404).send('Subscription information not found.');
     }
-
-    // Retrieve all active subscriptions for the customer from Stripe
-    const subscriptions = await stripe.subscriptions.list({
-      customer: stripeCustomerId,
-      status: 'active'
-    });
-    const subscriptionId = subscriptions.data[0]?.id; // Assuming the user will only have one active subscription
-
-    if (!subscriptionId) {
-      return res.status(404).send('Active Stripe subscription not found for user');
-    }
-
-    // Cancel the subscription on Stripe immediately
-    await stripe.subscriptions.del(subscriptionId);
-
-    // Or, to cancel at the end of the current billing period, use:
-    // await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
-
-    // Update your database to reflect the cancellation
-    await pool.query(
-      'UPDATE user_payments SET subscription_status = $1 WHERE stripe_customer_id = $2',
-      ['canceled', stripeCustomerId]
-    );
-
-    // Respond to the client that the cancellation was successful
-    res.status(200).json({ message: 'Subscription cancelled successfully' });
-  } catch (err) {
-    console.error('Stripe cancellation error:', err);
+  } catch (error) {
+    console.error('Error fetching subscription status:', error);
     res.status(500).send('Internal server error');
   }
 });
