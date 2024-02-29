@@ -260,8 +260,10 @@ app.get('/subscription-status', authenticateToken, async (req, res) => {
     const result = await pool.query(query, [hunterId]);
     
     if (result.rows.length > 0) {
-      const isSubscribed = result.rows[0].subscription_status === 'active';
-      res.json({ isSubscribed });
+      // Check for both active and trialing statuses
+      const status = result.rows[0].subscription_status;
+      const isSubscribed = status === 'active' || status === 'trialing';
+      res.json({ isSubscribed, status }); // Send back the status as well for more detailed frontend logic if needed
     } else {
       res.status(404).send('Subscription information not found.');
     }
@@ -270,8 +272,6 @@ app.get('/subscription-status', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
-
-
 
 ////
 
