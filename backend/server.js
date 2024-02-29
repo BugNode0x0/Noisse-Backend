@@ -498,8 +498,6 @@ app.get('/assets-ips/count', authenticateToken, checkSubscription, async (req, r
 
 
 //  GATHER DOMAINS
-const { Parser } = require('json2csv');
-
 app.get('/subdomains', authenticateToken, checkSubscription, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
