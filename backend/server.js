@@ -58,7 +58,6 @@ io.on('connection', (socket) => {
 
 // Stripe Payments
 
-
 app.post('/cancel-subscription', authenticateToken, async (req, res) => {
   const hunterId = req.user.id; // This is the hunter_id from the users table
 
@@ -74,22 +73,22 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
       return res.status(404).send('Stripe customer not found for user');
     }
 
-    // Retrieve all active subscriptions for the customer from Stripe
+    // Retrieve all subscriptions (including trials) for the customer from Stripe
     const subscriptions = await stripe.subscriptions.list({
       customer: stripeCustomerId,
-      status: 'active'
+      status: 'all',
+      expand: ['data.default_payment_method']
     });
-    const subscriptionId = subscriptions.data[0]?.id; // Assuming the user will only have one active subscription
 
-    if (!subscriptionId) {
-      return res.status(404).send('Active Stripe subscription not found for user');
+    // Find the first subscription that is either active or trialing
+    const subscription = subscriptions.data.find(sub => sub.status === 'active' || sub.status === 'trialing');
+
+    if (!subscription) {
+      return res.status(404).send('No active or trialing subscription found for user');
     }
 
     // Cancel the subscription on Stripe immediately
-    await stripe.subscriptions.del(subscriptionId);
-
-    // Or, to cancel at the end of the current billing period, use:
-    // await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
+    await stripe.subscriptions.update(subscription.id, { cancel_at_period_end: false });
 
     // Update your database to reflect the cancellation
     await pool.query(
@@ -104,7 +103,6 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
-
 
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (request, response) => {
   const sigHeader = request.headers['stripe-signature'];
