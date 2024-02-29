@@ -70,6 +70,8 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
     );
     const stripeCustomerId = customerQueryResult.rows[0]?.stripe_customer_id;
 
+    console.log('Stripe Customer ID:', stripeCustomerId); // Added log
+
     if (!stripeCustomerId) {
       return res.status(404).send('Stripe customer not found for user');
     }
@@ -77,17 +79,20 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
     // Retrieve all active subscriptions for the customer from Stripe
     const subscriptions = await stripe.subscriptions.list({
       customer: stripeCustomerId,
-      status: 'active'
+      status: 'all', // Changed from 'active' to 'all' to debug
+      limit: 1, // Add a limit to the query to only fetch one for simplicity
     });
-    const subscriptionId = subscriptions.data[0]?.id; // Assuming the user will only have one active subscription
 
-    if (!subscriptionId) {
+    console.log('Subscriptions:', subscriptions.data); // Added log
+
+    const activeSubscription = subscriptions.data.find(sub => sub.status === 'active');
+
+    if (!activeSubscription) {
       return res.status(404).send('Active Stripe subscription not found for user');
     }
 
     // Cancel the subscription on Stripe
-    await stripe.subscriptions.cancel(subscriptionId);
-
+    await stripe.subscriptions.del(activeSubscription.id); // Changed to .del as per Stripe API
 
     // Update your database to reflect the cancellation
     await pool.query(
@@ -102,6 +107,7 @@ app.post('/cancel-subscription', authenticateToken, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
+
 
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (request, response) => {
   const sigHeader = request.headers['stripe-signature'];
@@ -195,8 +201,6 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
-
-
 
 app.post('/finalize-subscription', authenticateToken, async (req, res) => {
   const hunterId = req.user.id;
