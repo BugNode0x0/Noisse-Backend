@@ -888,10 +888,10 @@ app.get('/jsview', authenticateToken, checkSubscription, async (req, res) => {
           s.subdomain
         ORDER BY
           s.subdomain`;
-
+  
       const result = await pool.query(selectAllQuery, [hunterId, search]);
-      // Convert to CSV (assuming you have a function to convert array of objects to CSV format)
-      const csvData = convertToCSV(result.rows);
+      const parser = new Parser();
+      const csvData = parser.parse(result.rows.map(row => ({ subdomain: row.subdomain, urls: row.urls.join(', ')})));
       res.header('Content-Type', 'text/csv');
       res.attachment('jsview.csv');
       return res.send(csvData);
@@ -899,6 +899,7 @@ app.get('/jsview', authenticateToken, checkSubscription, async (req, res) => {
       console.error('Error converting to CSV:', err);
       return res.status(500).send('Internal Server Error');
     }
+  
   } else {
     // Paginated response for non-CSV requests
     const page = parseInt(req.query.page) || 1;
