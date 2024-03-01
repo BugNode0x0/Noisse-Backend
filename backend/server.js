@@ -567,34 +567,38 @@ app.get('/subdomains', authenticateToken, checkSubscription, async (req, res) =>
 });
 
 app.get('/active-domains', authenticateToken, checkSubscription, async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const pageSize = parseInt(req.query.pageSize) || 10;
-  const search = req.query.search ? `%${req.query.search}%` : '%';
-  const offset = (page - 1) * pageSize;
   const hunterId = req.user.id;
   const format = req.query.format;
+  const search = req.query.search ? `%${req.query.search}%` : '%';
 
-  try {
-    const selectQuery = `
-      SELECT DISTINCT dr.subdomain
-      FROM dns_results dr
-      INNER JOIN user_subdomain us ON dr.subdomain_id = us.subdomain_id
-      INNER JOIN users u ON us.user_id = u.user_id
-      WHERE u.hunter_id = $1
-        AND dr.subdomain ILIKE $2
-      ORDER BY dr.subdomain`;
+  if (format === 'csv') {
+    // Fetch all active domains for CSV export
+    try {
+      const selectAllQuery = `
+        SELECT DISTINCT dr.subdomain
+        FROM dns_results dr
+        INNER JOIN user_subdomain us ON dr.subdomain_id = us.subdomain_id
+        INNER JOIN users u ON us.user_id = u.user_id
+        WHERE u.hunter_id = $1
+          AND dr.subdomain ILIKE $2
+        ORDER BY dr.subdomain`;
 
-    if (format === 'csv') {
-      const result = await pool.query(selectQuery, [hunterId, search]);
+      const result = await pool.query(selectAllQuery, [hunterId, search]);
       const parser = new Parser();
       const csvData = parser.parse(result.rows);
       res.header('Content-Type', 'text/csv');
       res.attachment('active-domains.csv');
       return res.send(csvData);
+    } catch (err) {
+      console.error('Error converting to CSV:', err);
+      return res.status(500).send('Internal Server Error');
     }
+  } else {
+    // Handle paginated API request
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 10;
+    const offset = (page - 1) * pageSize;
 
-    // Paginated query for non-CSV requests
-    const paginatedQuery = `${selectQuery} LIMIT $3 OFFSET $4`;
     const countQuery = `
       SELECT COUNT(DISTINCT dr.subdomain)
       FROM dns_results dr
@@ -603,20 +607,33 @@ app.get('/active-domains', authenticateToken, checkSubscription, async (req, res
       WHERE u.hunter_id = $1
         AND dr.subdomain ILIKE $2`;
 
-    const countResult = await pool.query(countQuery, [hunterId, search]);
-    const result = await pool.query(paginatedQuery, [hunterId, search, pageSize, offset]);
+    const selectQuery = `
+      SELECT DISTINCT dr.subdomain
+      FROM dns_results dr
+      INNER JOIN user_subdomain us ON dr.subdomain_id = us.subdomain_id
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE u.hunter_id = $1
+        AND dr.subdomain ILIKE $2
+      ORDER BY dr.subdomain
+      LIMIT $3 OFFSET $4`;
 
-    res.status(200).json({
-      activeDomains: result.rows,
-      total: parseInt(countResult.rows[0].count),
-      page,
-      pageSize,
-    });
-  } catch (err) {
-    console.error('Database error:', err);
-    res.status(500).send('Internal server error');
+    try {
+      const countResult = await pool.query(countQuery, [hunterId, search]);
+      const result = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
+
+      res.status(200).json({
+        activeDomains: result.rows,
+        total: parseInt(countResult.rows[0].count),
+        page,
+        pageSize,
+      });
+    } catch (err) {
+      console.error('Database error:', err);
+      res.status(500).send('Internal server error');
+    }
   }
 });
+
 
 app.get('/web-domains', authenticateToken, checkSubscription, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
