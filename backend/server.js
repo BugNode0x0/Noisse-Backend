@@ -863,74 +863,101 @@ app.get('/web-domains', authenticateToken, checkSubscription, async (req, res) =
 });
 
 app.get('/jsview', authenticateToken, checkSubscription, async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const pageSize = parseInt(req.query.pageSize) || 10;
-  const search = req.query.search ? `%${req.query.search}%` : '%';
-  const offset = (page - 1) * pageSize;
   const hunterId = req.user.id;
+  const format = req.query.format;
+  const search = req.query.search ? `%${req.query.search}%` : '%';
 
-  try {
-    // Select query to fetch the data
+  if (format === 'csv') {
+    // Fetch all data for CSV
+    try {
+      const selectAllQuery = `
+        SELECT
+          s.subdomain,
+          ARRAY_AGG(jr.url ORDER BY jr.timestamp DESC) as urls
+        FROM
+          js_results jr
+        INNER JOIN
+          user_subdomain us ON jr.subdomain_id = us.subdomain_id
+        INNER JOIN
+          users u ON us.user_id = u.user_id
+        INNER JOIN
+          subdomains s ON jr.subdomain_id = s.subdomain_id
+        WHERE
+          u.hunter_id = $1 AND (jr.url ILIKE $2)
+        GROUP BY
+          s.subdomain
+        ORDER BY
+          s.subdomain`;
+
+      const result = await pool.query(selectAllQuery, [hunterId, search]);
+      // Convert to CSV (assuming you have a function to convert array of objects to CSV format)
+      const csvData = convertToCSV(result.rows);
+      res.header('Content-Type', 'text/csv');
+      res.attachment('jsview.csv');
+      return res.send(csvData);
+    } catch (err) {
+      console.error('Error converting to CSV:', err);
+      return res.status(500).send('Internal Server Error');
+    }
+  } else {
+    // Paginated response for non-CSV requests
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 10;
+    const offset = (page - 1) * pageSize;
+
     const selectQuery = `
       SELECT
-      s.subdomain,
-      ARRAY_AGG(jr.url ORDER BY jr.timestamp DESC) as urls
-    FROM
-      js_results jr
-    INNER JOIN
-      user_subdomain us ON jr.subdomain_id = us.subdomain_id
-    INNER JOIN
-      users u ON us.user_id = u.user_id
-    INNER JOIN
-      subdomains s ON jr.subdomain_id = s.subdomain_id
-    WHERE
-      u.hunter_id = $1
-      AND (jr.url ILIKE $2)
-    GROUP BY
-      s.subdomain
-    ORDER BY
-      s.subdomain
-    LIMIT $3 OFFSET $4`;
+        s.subdomain,
+        ARRAY_AGG(jr.url ORDER BY jr.timestamp DESC) as urls
+      FROM
+        js_results jr
+      INNER JOIN
+        user_subdomain us ON jr.subdomain_id = us.subdomain_id
+      INNER JOIN
+        users u ON us.user_id = u.user_id
+      INNER JOIN
+        subdomains s ON jr.subdomain_id = s.subdomain_id
+      WHERE
+        u.hunter_id = $1 AND (jr.url ILIKE $2)
+      GROUP BY
+        s.subdomain
+      ORDER BY
+        s.subdomain
+      LIMIT $3 OFFSET $4`;
 
-    // Count query to get the total number of matching entries
     const countQuery = `
       SELECT
-      COUNT(DISTINCT s.subdomain) as total
-    FROM
-      js_results jr
-    INNER JOIN
-      user_subdomain us ON jr.subdomain_id = us.subdomain_id
-    INNER JOIN
-      users u ON us.user_id = u.user_id
-    INNER JOIN
-      subdomains s ON jr.subdomain_id = s.subdomain_id
-    WHERE
-      u.hunter_id = $1
-      AND (jr.url ILIKE $2)`;
+        COUNT(DISTINCT s.subdomain) as total
+      FROM
+        js_results jr
+      INNER JOIN
+        user_subdomain us ON jr.subdomain_id = us.subdomain_id
+      INNER JOIN
+        users u ON us.user_id = u.user_id
+      INNER JOIN
+        subdomains s ON jr.subdomain_id = s.subdomain_id
+      WHERE
+        u.hunter_id = $1 AND (jr.url ILIKE $2)`;
 
-    // Execute both the select and count queries
-    const [selectResult, countResult] = await Promise.all([
-      pool.query(selectQuery, [hunterId, search, pageSize, offset]),
-      pool.query(countQuery, [hunterId, search])
-    ]);
+    try {
+      const [selectResult, countResult] = await Promise.all([
+        pool.query(selectQuery, [hunterId, search, pageSize, offset]),
+        pool.query(countQuery, [hunterId, search])
+      ]);
+      const totalItems = parseInt(countResult.rows[0].total, 10);
 
-    // Extract the total count from the count query result
-    const totalItems = parseInt(countResult.rows[0].total, 10);
-
-    // Send back the results and the total count
-    res.status(200).json({
-      jsview: selectResult.rows,
-      total: totalItems,
-      page,
-      pageSize
-    });
-    
-  } catch (err) {
-    console.error('Database error:', err);
-    res.status(500).send('Internal server error');
+      res.status(200).json({
+        jsview: selectResult.rows,
+        total: totalItems,
+        page,
+        pageSize
+      });
+    } catch (err) {
+      console.error('Database error:', err);
+      res.status(500).send('Internal server error');
+    }
   }
 });
-
 
 // Slack integration
 app.get('/user/webhook', authenticateToken, async (req, res) => {
