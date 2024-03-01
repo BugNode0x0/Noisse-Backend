@@ -703,45 +703,75 @@ app.get('/web-domains', authenticateToken, checkSubscription, async (req, res) =
   }
 });
 
-app.get('/assets-ips', authenticateToken, checkSubscription, async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const pageSize = parseInt(req.query.pageSize) || 10;
-  const search = req.query.search ? `%${req.query.search}%` : '%';
-  const offset = (page - 1) * pageSize;
-  const hunterId = req.user.id; // Extract hunter_id from JWT token
+const { Parser } = require('json2csv');
 
-  try {
+app.get('/assets-ips', authenticateToken, checkSubscription, async (req, res) => {
+  const hunterId = req.user.id; // Extract hunter_id from JWT token
+  const format = req.query.format;
+  const search = req.query.search ? `%${req.query.search}%` : '%';
+
+  if (format === 'csv') {
+    // Fetch all IPs for CSV export without pagination
+    try {
+      const selectAllQuery = `
+        SELECT dr.subdomain, dr.ip, dr.status_code
+        FROM dns_results dr
+        INNER JOIN user_subdomain us ON dr.subdomain_id = us.subdomain_id
+        INNER JOIN users u ON us.user_id = u.user_id
+        WHERE u.hunter_id = $1 AND (dr.subdomain ILIKE $2 OR dr.ip ILIKE $2)
+        ORDER BY dr.subdomain`;
+
+      const result = await pool.query(selectAllQuery, [hunterId, search]);
+      const parser = new Parser({
+        fields: ['subdomain', 'ip', 'status_code'] // Define the fields you want to include in the CSV
+      });
+      const csvData = parser.parse(result.rows);
+      res.header('Content-Type', 'text/csv');
+      res.attachment('assets-ips.csv');
+      return res.send(csvData);
+    } catch (err) {
+      console.error('Error converting to CSV:', err);
+      return res.status(500).send('Internal Server Error');
+    }
+  } else {
+    // Handle paginated API request for standard JSON response
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 10;
+    const offset = (page - 1) * pageSize;
+
     const countQuery = `
       SELECT COUNT(DISTINCT dr.dns_id)
       FROM dns_results dr
       INNER JOIN user_subdomain us ON dr.subdomain_id = us.subdomain_id
       INNER JOIN users u ON us.user_id = u.user_id
-      WHERE u.hunter_id = $1
-        AND (dr.subdomain ILIKE $2 OR dr.ip ILIKE $2)`;
+      WHERE u.hunter_id = $1 AND (dr.subdomain ILIKE $2 OR dr.ip ILIKE $2)`;
+    
     const selectQuery = `
       SELECT dr.subdomain, dr.ip, dr.status_code
       FROM dns_results dr
       INNER JOIN user_subdomain us ON dr.subdomain_id = us.subdomain_id
       INNER JOIN users u ON us.user_id = u.user_id
-      WHERE u.hunter_id = $1
-        AND (dr.subdomain ILIKE $2 OR dr.ip ILIKE $2)
+      WHERE u.hunter_id = $1 AND (dr.subdomain ILIKE $2 OR dr.ip ILIKE $2)
       ORDER BY dr.subdomain
       LIMIT $3 OFFSET $4`;
 
-    const countResult = await pool.query(countQuery, [hunterId, search]);
-    const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
-
-    res.status(200).json({
-      assetsIps: selectResult.rows,
-      total: parseInt(countResult.rows[0].count),
-      page,
-      pageSize
-    });
-  } catch (err) {
-    console.error('Database error:', err);
-    res.status(500).send('Internal server error');
+    try {
+      const countResult = await pool.query(countQuery, [hunterId, search]);
+      const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
+      
+      res.status(200).json({
+        assetsIps: selectResult.rows,
+        total: parseInt(countResult.rows[0].count),
+        page,
+        pageSize
+      });
+    } catch (err) {
+      console.error('Database error:', err);
+      res.status(500).send('Internal server error');
+    }
   }
 });
+
 
 app.get('/web-domains', authenticateToken, checkSubscription, async (req, res) => {
   const hunterId = req.user.id;
