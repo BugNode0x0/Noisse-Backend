@@ -703,8 +703,6 @@ app.get('/web-domains', authenticateToken, checkSubscription, async (req, res) =
   }
 });
 
-const { Parser } = require('json2csv');
-
 app.get('/assets-ips', authenticateToken, checkSubscription, async (req, res) => {
   const hunterId = req.user.id; // Extract hunter_id from JWT token
   const format = req.query.format;
