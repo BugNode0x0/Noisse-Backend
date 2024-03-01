@@ -743,76 +743,94 @@ app.get('/assets-ips', authenticateToken, checkSubscription, async (req, res) =>
   }
 });
 
-app.get('/webview', authenticateToken, checkSubscription, async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const pageSize = parseInt(req.query.pageSize) || 10;
-  const search = req.query.search ? `%${req.query.search}%` : '%';
-  const offset = (page - 1) * pageSize;
+app.get('/web-domains', authenticateToken, checkSubscription, async (req, res) => {
   const hunterId = req.user.id;
+  const format = req.query.format;
+  const search = req.query.search ? `%${req.query.search}%` : '%';
 
-  try {
-    // Query to get the screenshots for the current page
-    const selectQuery = `
-      SELECT DISTINCT ON (sr.screenshot_id) sr.screenshot_id, 
-      sr.url as website_url, 
-      sr.screenshot_url, 
-      sr.timestamp,
-      hr.url as http_url, 
-      hr.title, 
-      hr.status_code, 
-      hr.content_length, 
-      hr.webserver, 
-      hr.tech
-    FROM screenshot_results sr
-    INNER JOIN http_results hr ON sr.subdomain_id = hr.subdomain_id
-    WHERE (
-      sr.url ILIKE $2 OR 
-      hr.url ILIKE $2 OR 
-      hr.title ILIKE $2 OR 
-      hr.content_length::text ILIKE $2 OR
-      hr.status_code::text ILIKE $2
-    )
-    AND sr.screenshot_url IS NOT NULL
-    AND EXISTS (
-        SELECT 1 FROM user_subdomain us
+  if (format === 'csv') {
+    // Fetch all web domain data for CSV export
+    try {
+      const selectAllQuery = `
+        SELECT DISTINCT hr.url, hr.title, hr.status_code, hr.content_length, hr.webserver, hr.tech
+        FROM http_results hr
+        INNER JOIN user_subdomain us ON hr.subdomain_id = us.subdomain_id
         INNER JOIN users u ON us.user_id = u.user_id
-        WHERE u.hunter_id = $1 AND us.subdomain_id = sr.subdomain_id
-    )
-    ORDER BY sr.screenshot_id, sr.timestamp DESC
-    LIMIT $3 OFFSET $4
-    `;
+        WHERE u.hunter_id = $1
+          AND (
+            hr.url ILIKE $2 OR 
+            hr.title ILIKE $2 OR 
+            hr.status_code::text ILIKE $2 OR 
+            hr.content_length::text ILIKE $2 OR
+            hr.webserver ILIKE $2 OR
+            hr.tech ILIKE $2
+          )
+        ORDER BY hr.url`;
 
-    // Query to count the total number of distinct screenshots
-    const totalQuery = `
-      SELECT COUNT(DISTINCT sr.screenshot_id) as total 
-      FROM screenshot_results sr
-      INNER JOIN http_results hr ON sr.subdomain_id = hr.subdomain_id
-      WHERE (sr.url ILIKE $2 OR hr.url ILIKE $2 OR hr.title ILIKE $2)
-      AND sr.screenshot_url IS NOT NULL
-      AND EXISTS (
-          SELECT 1 FROM user_subdomain us
-          INNER JOIN users u ON us.user_id = u.user_id
-          WHERE u.hunter_id = $1 AND us.subdomain_id = sr.subdomain_id
-    )
-    `;
+      const result = await pool.query(selectAllQuery, [hunterId, search]);
+      const parser = new Parser({
+        fields: ['url', 'title', 'status_code', 'content_length', 'webserver', 'tech']
+      });
+      const csvData = parser.parse(result.rows);
+      res.header('Content-Type', 'text/csv');
+      res.attachment('web-domains.csv');
+      return res.send(csvData);
+    } catch (err) {
+      console.error('Error converting to CSV:', err);
+      return res.status(500).send('Internal Server Error');
+    }
+  } else {
+    // Handle paginated API request
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 10;
+    const offset = (page - 1) * pageSize;
 
-    // Execute both queries
-    const [selectResult, totalResult] = await Promise.all([
-      pool.query(selectQuery, [hunterId, search, pageSize, offset]),
-      pool.query(totalQuery, [hunterId, search])
-    ]);
+    const countQuery = `
+      SELECT COUNT(DISTINCT hr.url)
+      FROM http_results hr
+      INNER JOIN user_subdomain us ON hr.subdomain_id = us.subdomain_id
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE u.hunter_id = $1
+        AND (
+          hr.url ILIKE $2 OR 
+          hr.title ILIKE $2 OR 
+          hr.status_code::text ILIKE $2 OR 
+          hr.content_length::text ILIKE $2 OR
+          hr.webserver ILIKE $2 OR
+          hr.tech ILIKE $2
+        )`;
 
-    // Send back the results and the total count
-    res.status(200).json({
-      webview: selectResult.rows,
-      total: parseInt(totalResult.rows[0].total, 10), // Parse the total count to an integer
-      page,
-      pageSize
-    });
+    const selectQuery = `
+      SELECT DISTINCT hr.url, hr.title, hr.status_code, hr.content_length, hr.webserver, hr.tech
+      FROM http_results hr
+      INNER JOIN user_subdomain us ON hr.subdomain_id = us.subdomain_id
+      INNER JOIN users u ON us.user_id = u.user_id
+      WHERE u.hunter_id = $1
+        AND (
+          hr.url ILIKE $2 OR 
+          hr.title ILIKE $2 OR 
+          hr.status_code::text ILIKE $2 OR 
+          hr.content_length::text ILIKE $2 OR
+          hr.webserver ILIKE $2 OR
+          hr.tech ILIKE $2
+        )
+      ORDER BY hr.url
+      LIMIT $3 OFFSET $4`;
 
-  } catch (err) {
-    console.error('Database error:', err);
-    res.status(500).send('Internal server error');
+    try {
+      const countResult = await pool.query(countQuery, [hunterId, search]);
+      const result = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
+
+      res.status(200).json({
+        webDomains: result.rows,
+        total: parseInt(countResult.rows[0].count),
+        page,
+        pageSize,
+      });
+    } catch (err) {
+      console.error('Database error:', err);
+      res.status(500).send('Internal server error');
+    }
   }
 });
 
