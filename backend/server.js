@@ -303,7 +303,9 @@ app.post('/domains/enumerate', authenticateToken, checkSubscription, async (req,
     // Extract the user ID from the decoded payload
     const userId = decodedPayload.user.id;
 
-    const response = await axios.post('http://slayer.noisse.io/monitor-domain', { domain }, {
+
+    // add http://slayer.noisse.io/monitor-domain after testing //
+    const response = await axios.post('http://159.203.165.181:1337/', { domain }, {
         headers: {
             'Authorization': `Bearer ${token}`,
             'X-User-ID': userId 
