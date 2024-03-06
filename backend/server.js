@@ -349,6 +349,7 @@ app.get('/domains/count', authenticateToken, checkSubscription, async (req, res)
     const result = await pool.query(query, [hunterId]);
     const count = result.rows && result.rows.length ? parseInt(result.rows[0].count, 10) : 0;
     res.status(200).json({ count });
+    io.emit('updateCounts', { type: 'discoveredDomains', count: count });
   } catch (err) {
     console.error('Database error:', err);
     res.status(500).send('Internal server error');
@@ -418,6 +419,7 @@ app.get('/active-domains/count', authenticateToken, checkSubscription, async (re
     const result = await pool.query(query, [hunterId]);
     const count = result.rows[0].count ? parseInt(result.rows[0].count, 10) : 0;
     res.status(200).json({ count });
+    io.emit('updateCounts', { type: 'activeDomains', count: count });
   } catch (err) {
     console.error('Database error:', err);
     res.status(500).send('Internal server error');
@@ -455,6 +457,7 @@ app.get('/web-domains/count', authenticateToken, checkSubscription, async (req, 
     const result = await pool.query(query, [hunterId]);
     const count = result.rows[0].count ? parseInt(result.rows[0].count, 10) : 0;
     res.status(200).json({ count });
+    io.emit('updateCounts', { type: 'webDomains', count: count });
   } catch (err) {
     console.error('Database error:', err);
     res.status(500).send('Internal server error');
@@ -492,6 +495,7 @@ app.get('/assets-ips/count', authenticateToken, checkSubscription, async (req, r
     const result = await pool.query(query, [hunterId]);
     const count = result.rows[0].count ? parseInt(result.rows[0].count, 10) : 0;
     res.status(200).json({ count });
+    io.emit('updateCounts', { type: 'assetsIps', count: count });
   } catch (err) {
     console.error('Database error:', err);
     res.status(500).send('Internal server error');
@@ -1007,4 +1011,5 @@ app.post('/user/webhook', authenticateToken, async (req, res) => {
 const PORT = process.env.PORT || 3001;
   httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    io.attach(httpServer);
   });
