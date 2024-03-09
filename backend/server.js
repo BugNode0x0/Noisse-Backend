@@ -305,7 +305,7 @@ app.post('/domains/enumerate', authenticateToken, checkSubscription, async (req,
 
 
     // add http://slayer.noisse.io/monitor-domain after testing //
-    const response = await axios.post('http://104.236.194.116:1337/monitor-domain', { domain }, {
+    const response = await axios.post('http://174.138.90.38:42069/monitor-domain', { domain }, {
         headers: {
             'Authorization': `Bearer ${token}`,
             'X-User-ID': userId 
