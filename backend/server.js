@@ -171,7 +171,7 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
       payment_method_types: ['card'],
       customer: stripeCustomerId,
       line_items: [{
-        price: 'price_1OmqzqEexrrszXdmQu9X9ACY', // Your price ID
+        price: 'price_1OtHbeEexrrszXdmrD9Rg17p', // Your price ID
         quantity: 1,
       }],
       subscription_data: {
