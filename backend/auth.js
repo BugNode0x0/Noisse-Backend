@@ -108,7 +108,7 @@ router.get('/callback', async (req, res) => {
             sameSite: 'None',
         });
   
-        res.redirect('https://dev-noisse.vercel.app');
+        res.redirect('https://app.noisse.io');
     } catch (error) {
         console.error('Error in /callback:', error);
         res.status(500).send('Internal server error');
