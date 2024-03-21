@@ -48,6 +48,8 @@ const io = new Server(httpServer, {
     origin: "*", // Be sure to set correct origins in production, don't use '*' as it's insecure
     methods: ["GET", "POST"],
   },
+  pingInterval: 10000, // Time in ms between pings (10 seconds)
+  pingTimeout: 5000, // Time in ms to wait for a pong before considering the connection closed (5 seconds)
 });
 
 io.on('connection', (socket) => {
