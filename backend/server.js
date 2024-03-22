@@ -11,8 +11,8 @@ const axios = require('axios');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const Stripe = require('stripe');
-
-
+const Redis = require('ioredis');
+const userSockets = new Map();
 
 // CONFIG //
 require('dotenv').config(); 
@@ -52,13 +52,89 @@ const io = new Server(httpServer, {
 
 io.on('connection', (socket) => {
   console.log('a user connected');
+
+  socket.on('authenticate', (hunter_id) => {
+    // Validate hunter_id here if necessary
+    userSockets.set(hunter_id, socket.id);
+  });
+
   socket.on('disconnect', () => {
-    console.log('user disconnected');
+    for (const [hunter_id, socketId] of userSockets.entries()) {
+      if (socketId === socket.id) {
+        userSockets.delete(hunter_id);
+        console.log(`User with hunter_id ${hunter_id} disconnected`);
+        break;
+      }
+    }
   });
 });
 
-// Stripe Payments
 
+// Redis configuration
+const redis = new Redis({
+  host: process.env.REDIS_HOST, 
+  port: process.env.REDIS_PORT, 
+  password: process.env.REDIS_PASSWORD,
+});
+
+async function findUserSocketAndEmit(user_id, event, message) {
+  try {
+    // Asynchronously convert user_id to hunter_id
+    const hunter_id = await convertUserIdToHunterId(user_id);
+
+    const socketId = userSockets.get(hunter_id);
+    if (socketId && io.sockets.sockets.get(socketId)) {
+      io.to(socketId).emit(event, message);
+    } else {
+      console.error(`Socket not found for user with hunter_id ${hunter_id}`);
+      // Additional error handling or notification logging can be done here
+    }
+  } catch (error) {
+    console.error(`Error in findUserSocketAndEmit: ${error}`);
+    // Implement additional error handling logic here
+    // This could involve logging the error, retrying the operation, etc.
+  }
+}
+
+async function convertUserIdToHunterId(user_id) {
+  try {
+    const result = await pool.query('SELECT hunter_id FROM users WHERE user_id = $1', [user_id]);
+    if (result.rows.length > 0) {
+      return result.rows[0].hunter_id;
+    } else {
+      throw new Error(`Hunter ID not found for user ID: ${user_id}`);
+    }
+  } catch (error) {
+    console.error('Error converting user ID to hunter ID:', error);
+    throw error; // Rethrow the error to be handled by the caller
+  }
+}
+
+
+function processNotificationMessage(message) {
+  const notification = JSON.parse(message);
+  const { user_id, message: msg } = notification;
+
+  findUserSocketAndEmit(user_id, 'notification', msg);
+}
+
+// Function to start listening for messages on the Redis queue
+function listenForNotifications() {
+  redis.blpop('notification_queue', 0, (err, [queue, message]) => {
+    if (err) {
+      console.error('Error listening for messages:', err);
+      // Implement retry or error handling as needed
+      return;
+    }
+    console.log(`Received message from queue ${queue}: ${message}`);
+    processNotificationMessage(message);
+  });
+}
+
+// Call the function to start listening for notifications
+listenForNotifications();
+
+// Stripe Payments
 app.post('/cancel-subscription', authenticateToken, async (req, res) => {
   const hunterId = req.user.id; // This is the hunter_id from the users table
 
@@ -269,14 +345,20 @@ app.get('/subscription-status', authenticateToken, async (req, res) => {
 
 ////
 
-app.get('/get-user-id', authenticateToken, (req, res) => {
-  // Assuming authenticateToken middleware adds a 'user' object to 'req'
-  if (req.user && req.user.id) {
-    // Send back the user ID as a response
-    res.status(200).json({ userId: req.user.id });
-  } else {
-    // If user ID is not present, send an error response
-    res.status(401).json({ error: 'User ID could not be extracted' });
+app.get('/get-hunter-id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id; // Assuming you have middleware to authenticate and add the user object to the request
+    const queryResult = await pool.query('SELECT hunter_id FROM users WHERE user_id = $1', [userId]);
+    
+    if (queryResult.rows.length > 0) {
+      const hunterId = queryResult.rows[0].hunter_id;
+      res.status(200).json({ hunterId });
+    } else {
+      res.status(404).json({ error: 'Hunter ID not found.' });
+    }
+  } catch (error) {
+    console.error('Error in /get-hunter-id:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
