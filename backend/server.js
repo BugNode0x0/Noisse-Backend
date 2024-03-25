@@ -45,7 +45,7 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: "*", // Be sure to set correct origins in production, don't use '*' as it's insecure
+    origin: "https://dev-noisse.vercel.app", 
     methods: ["GET", "POST"],
   },
 });
@@ -110,13 +110,19 @@ async function convertUserIdToHunterId(user_id) {
   }
 }
 
-
 function processNotificationMessage(message) {
-  const notification = JSON.parse(message);
-  const { user_id, message: msg } = notification;
+  const notificationData = JSON.parse(message);
+  const { user_id, title } = notificationData;
 
-  findUserSocketAndEmit(user_id, 'notification', msg);
+  // Format the notification to include only the title
+  const formattedNotification = {
+    title: title
+    // No additional fields; keeping it minimalist
+  };
+
+  findUserSocketAndEmit(user_id, 'notification', formattedNotification);
 }
+
 
 // Function to start listening for messages on the Redis queue
 function listenForNotifications() {
