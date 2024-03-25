@@ -56,6 +56,11 @@ const io = new Server(httpServer, {
 io.on('connection', (socket) => {
   console.log('a user connected');
 
+io.on('error', (error) => {
+    console.error('Socket.IO error:', error);
+    // Handle the error accordingly
+  });
+
   socket.on('authenticate', (hunter_id) => {
     // Validate hunter_id here if necessary
     userSockets.set(hunter_id, socket.id);
