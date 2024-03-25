@@ -351,21 +351,14 @@ app.get('/subscription-status', authenticateToken, async (req, res) => {
 
 ////
 
-app.get('/get-hunter-id', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    console.log("User ID from req.user.id:", userId); // Debug log
-    const queryResult = await pool.query('SELECT hunter_id FROM users WHERE user_id = $1', [userId]);
-
-    if (queryResult.rows.length > 0) {
-      const hunterId = queryResult.rows[0].hunter_id;
-      res.status(200).json({ hunterId });
-    } else {
-      res.status(404).json({ error: 'Hunter ID not found.' });
-    }
-  } catch (error) {
-    console.error('Error in /get-hunter-id:', error);
-    res.status(500).json({ error: 'Internal server error' });
+app.get('/get-user-id', authenticateToken, (req, res) => {
+  // Assuming authenticateToken middleware adds a 'user' object to 'req'
+  if (req.user && req.user.id) {
+    // Send back the user ID as a response
+    res.status(200).json({ userId: req.user.id });
+  } else {
+    // If user ID is not present, send an error response
+    res.status(401).json({ error: 'User ID could not be extracted' });
   }
 });
 
