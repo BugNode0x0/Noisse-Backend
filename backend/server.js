@@ -98,10 +98,18 @@ async function findUserSocketAndEmit(user_id, event, message) {
 
 async function convertUserIdToHunterId(user_id) {
   try {
+    console.log('Converting user_id to hunter_id for user_id:', user_id);
+
     const result = await pool.query('SELECT hunter_id FROM users WHERE user_id = $1', [user_id]);
+
+    console.log('Query result:', result);
+
     if (result.rows.length > 0) {
-      return result.rows[0].hunter_id;
+      const hunter_id = result.rows[0].hunter_id;
+      console.log('Found hunter_id:', hunter_id);
+      return hunter_id;
     } else {
+      console.log('No hunter_id found for user_id:', user_id);
       throw new Error(`Hunter ID not found for user ID: ${user_id}`);
     }
   } catch (error) {
