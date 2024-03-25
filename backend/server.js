@@ -20,9 +20,10 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const corsOptions = {
-  origin: 'https://dev-noisse.vercel.app',
-  credentials: true, // to allow sending of cookies
-  methods: ['GET', 'POST', /* other HTTP methods you use */]
+  origin: 'https://dev-noisse.vercel.app', // Replace with your frontend domain
+  methods: ['GET', 'POST'], // Specify the allowed HTTP methods
+  allowedHeaders: ['Content-Type'], // Specify the allowed headers
+  credentials: true // Allow sending cookies
 };
 app.use(cors(corsOptions));
 
@@ -48,6 +49,8 @@ const io = new Server(httpServer, {
     origin: "https://dev-noisse.vercel.app", 
     methods: ["GET", "POST"],
   },
+  pingTimeout: 60000, // Increase the ping timeout to 60 seconds
+  pingInterval: 25000 // Send a ping every 25 seconds
 });
 
 io.on('connection', (socket) => {
