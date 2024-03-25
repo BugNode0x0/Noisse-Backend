@@ -353,9 +353,10 @@ app.get('/subscription-status', authenticateToken, async (req, res) => {
 
 app.get('/get-hunter-id', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id; // Assuming you have middleware to authenticate and add the user object to the request
+    const userId = req.user.id;
+    console.log("User ID from req.user.id:", userId); // Debug log
     const queryResult = await pool.query('SELECT hunter_id FROM users WHERE user_id = $1', [userId]);
-    
+
     if (queryResult.rows.length > 0) {
       const hunterId = queryResult.rows[0].hunter_id;
       res.status(200).json({ hunterId });
@@ -367,6 +368,7 @@ app.get('/get-hunter-id', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 ///
 app.post('/domains/enumerate', authenticateToken, checkSubscription, async (req, res) => {
