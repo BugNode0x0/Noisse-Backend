@@ -11,7 +11,7 @@ const axios = require('axios');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const Stripe = require('stripe');
-const Redis = require('ioredis');
+const Redis = require('ioredis');3
 const userSockets = new Map();
 
 // CONFIG //
@@ -56,9 +56,19 @@ const io = new Server(httpServer, {
 io.on('connection', (socket) => {
   console.log('a user connected');
 
-io.on('error', (error) => {
+  // Log ping messages
+  socket.on('ping', () => {
+    console.log('Received ping from client');
+  });
+
+  // Log pong messages
+  socket.on('pong', (latency) => {
+    console.log(`Received pong from client with latency: ${latency}ms`);
+  });
+
+  // Log Socket.IO errors
+  socket.on('error', (error) => {
     console.error('Socket.IO error:', error);
-    // Handle the error accordingly
   });
 
   socket.on('authenticate', (hunter_id) => {
@@ -76,7 +86,6 @@ io.on('error', (error) => {
     }
   });
 });
-
 
 // Redis configuration
 const redis = new Redis({
