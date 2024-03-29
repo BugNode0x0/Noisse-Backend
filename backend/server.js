@@ -152,19 +152,25 @@ function processNotificationMessage(message) {
 
 // Function to start listening for messages on the Redis queue
 function listenForNotifications() {
-  redis.blpop('notification_queue', 0, (err, [queue, message]) => {
-    if (err) {
-      console.error('Error listening for messages:', err);
-      // Implement retry or error handling as needed
-      return;
-    }
-    console.log(`Received message from queue ${queue}: ${message}`);
-    processNotificationMessage(message);
-  });
+  (function loop() {
+    redis.blpop('notification_queue', 0, (err, [queue, message]) => {
+      if (err) {
+        console.error('Error listening for messages:', err);
+        // Implement retry logic or other error handling as needed
+        return;
+      }
+      if (message) {
+        console.log(`Received message from queue ${queue}: ${message}`);
+        processNotificationMessage(message);
+      }
+      loop(); // Recursively call the function to continue listening for notifications
+    });
+  })();
 }
 
 // Call the function to start listening for notifications
 listenForNotifications();
+
 
 // Stripe Payments
 app.post('/cancel-subscription', authenticateToken, async (req, res) => {
