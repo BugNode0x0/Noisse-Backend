@@ -54,6 +54,7 @@ const io = new Server(httpServer, {
 });
 
 io.on('connection', (socket) => {
+  console.log(`User connected with socket ID: ${socket.id}`);
   console.log('a user connected');
 
   // Log ping messages
@@ -72,16 +73,16 @@ io.on('connection', (socket) => {
   });
 
   socket.on('authenticate', (hunter_id) => {
-    console.log('Websocket with authentication')
-    // Validate hunter_id here if necessary
+    console.log(`Authenticating user: ${hunter_id}`);
     userSockets.set(hunter_id, socket.id);
+    console.log(`User authenticated. Hunter ID: ${hunter_id}, Socket ID: ${socket.id}`);
   });
 
   socket.on('disconnect', () => {
     for (const [hunter_id, socketId] of userSockets.entries()) {
       if (socketId === socket.id) {
         userSockets.delete(hunter_id);
-        console.log(`User with hunter_id ${hunter_id} disconnected`);
+        console.log(`User with hunter_id ${hunter_id} disconnected. Socket ID: ${socketId}`);
         break;
       }
     }
@@ -99,19 +100,18 @@ async function findUserSocketAndEmit(user_id, event, message) {
   try {
     const hunter_id = await convertUserIdToHunterId(user_id);
     const socketId = userSockets.get(hunter_id);
-
     if (socketId) {
       if (io.sockets.sockets.get(socketId)) {
         io.to(socketId).emit(event, message);
-        console.log(`Notification sent to user with hunter_id: ${hunter_id}`);
+        console.log(`Notification sent to ${hunter_id} at socket ${socketId}`);
       } else {
-        console.log(`Socket ID found but socket is not connected for hunter_id: ${hunter_id}`);
+        console.error(`Socket ID ${socketId} not connected for hunter_id ${hunter_id}`);
       }
     } else {
-      console.log(`Socket ID not found for hunter_id: ${hunter_id}`);
+      console.error(`No socket ID found for hunter_id ${hunter_id}`);
     }
   } catch (error) {
-    console.error(`Error in findUserSocketAndEmit: ${error}`);
+    console.error(`Error in findUserSocketAndEmit for user_id ${user_id}: ${error}`);
   }
 }
 
@@ -155,17 +155,15 @@ function processNotificationMessage(message) {
 // Function to start listening for messages on the Redis queue
 function listenForNotifications() {
   (function loop() {
-    redis.blpop('notification_queue', 0, (err, [queue, message]) => {
+    redis.blpop('notification_queue', 0, async (err, [queue, message]) => {
       if (err) {
         console.error('Error listening for messages:', err);
-        // Implement retry logic or other error handling as needed
+        setTimeout(loop, 1000); // Retry after a second in case of error
         return;
       }
-      if (message) {
-        console.log(`Received message from queue ${queue}: ${message}`);
-        processNotificationMessage(message);
-      }
-      loop(); // Recursively call the function to continue listening for notifications
+      console.log(`Received message from queue ${queue}: ${message}`);
+      processNotificationMessage(message);
+      loop();
     });
   })();
 }
