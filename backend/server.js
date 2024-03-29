@@ -97,22 +97,24 @@ const redis = new Redis({
 
 async function findUserSocketAndEmit(user_id, event, message) {
   try {
-    // Asynchronously convert user_id to hunter_id
     const hunter_id = await convertUserIdToHunterId(user_id);
-
     const socketId = userSockets.get(hunter_id);
-    if (socketId && io.sockets.sockets.get(socketId)) {
-      io.to(socketId).emit(event, message);
+
+    if (socketId) {
+      if (io.sockets.sockets.get(socketId)) {
+        io.to(socketId).emit(event, message);
+        console.log(`Notification sent to user with hunter_id: ${hunter_id}`);
+      } else {
+        console.log(`Socket ID found but socket is not connected for hunter_id: ${hunter_id}`);
+      }
     } else {
-      console.error(`Socket not found for user with hunter_id ${hunter_id}`);
-      // Additional error handling or notification logging can be done here
+      console.log(`Socket ID not found for hunter_id: ${hunter_id}`);
     }
   } catch (error) {
     console.error(`Error in findUserSocketAndEmit: ${error}`);
-    // Implement additional error handling logic here
-    // This could involve logging the error, retrying the operation, etc.
   }
 }
+
 
 async function convertUserIdToHunterId(user_id) {
   try {
