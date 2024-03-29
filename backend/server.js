@@ -72,6 +72,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('authenticate', (hunter_id) => {
+    console.log('Websocket with authentication')
     // Validate hunter_id here if necessary
     userSockets.set(hunter_id, socket.id);
   });
