@@ -1,12 +1,12 @@
 const express = require('express');
+const http = require('http');
 const authenticateToken = require('./authMiddleware');
 const checkSubscription = require('./checkSubscription');
 const { Pool } = require('pg');
 const cors = require('cors');
 const { exec } = require('child_process');
 const { Parser } = require('json2csv');
-//const { createServer } = require('http');
-//const { Server } = require('socket.io');
+const websocketMiddleware = require('./websocketMiddleware');
 const axios = require('axios');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
@@ -19,11 +19,14 @@ require('dotenv').config();
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
+const server = http.createServer(app);
+
+
 const corsOptions = {
-  origin: 'https://dev-noisse.vercel.app', // Replace with your frontend domain
-  methods: ['GET', 'POST'], // Specify the allowed HTTP methods
-  allowedHeaders: ['Content-Type'], // Specify the allowed headers
-  credentials: true // Allow sending cookies
+  origin: 'https://dev-noisse.vercel.app',
+  methods: ['GET', 'POST'], 
+  allowedHeaders: ['Content-Type'], 
+  credentials: true
 };
 app.use(cors(corsOptions));
 
@@ -1075,8 +1078,10 @@ app.post('/user/webhook', authenticateToken, async (req, res) => {
 });
 
 
+websocketMiddleware(server);
+
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
