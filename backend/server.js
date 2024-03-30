@@ -5,14 +5,14 @@ const { Pool } = require('pg');
 const cors = require('cors');
 const { exec } = require('child_process');
 const { Parser } = require('json2csv');
-const { createServer } = require('http'); // Ensure this is at the top with other requires
-const { Server } = require('socket.io');
+//const { createServer } = require('http');
+//const { Server } = require('socket.io');
 const axios = require('axios');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const Stripe = require('stripe');
-const Redis = require('ioredis');3
-const userSockets = new Map();
+//const Redis = require('ioredis');
+//const userSockets = new Map();
 
 // CONFIG //
 require('dotenv').config(); 
@@ -42,134 +42,13 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
 });
 
-const httpServer = createServer(app);
-
-const io = new Server(httpServer, {
-  cors: {
-    origin: "https://dev-noisse.vercel.app", 
-    methods: ["GET", "POST"],
-  },
-  pingTimeout: 60000, // Increase the ping timeout to 60 seconds
-  pingInterval: 25000 // Send a ping every 25 seconds
-});
-
-io.on('connection', (socket) => {
-  console.log(`User connected with socket ID: ${socket.id}`);
-  console.log('a user connected');
-
-  // Log ping messages
-  socket.on('ping', () => {
-    console.log('Received ping from client');
-  });
-
-  // Log pong messages
-  socket.on('pong', (latency) => {
-    console.log(`Received pong from client with latency: ${latency}ms`);
-  });
-
-  // Log Socket.IO errors
-  socket.on('error', (error) => {
-    console.error('Socket.IO error:', error);
-  });
-
-  socket.on('authenticate', (hunter_id) => {
-    console.log(`Authenticating user: ${hunter_id}`);
-    userSockets.set(hunter_id, socket.id);
-    console.log(`User authenticated. Hunter ID: ${hunter_id}, Socket ID: ${socket.id}`);
-  });
-
-  socket.on('disconnect', () => {
-    for (const [hunter_id, socketId] of userSockets.entries()) {
-      if (socketId === socket.id) {
-        userSockets.delete(hunter_id);
-        console.log(`User with hunter_id ${hunter_id} disconnected. Socket ID: ${socketId}`);
-        break;
-      }
-    }
-  });
-});
 
 // Redis configuration
-const redis = new Redis({
-  host: process.env.REDIS_HOST, 
-  port: process.env.REDIS_PORT, 
-  password: process.env.REDIS_PASSWORD,
-});
-
-async function findUserSocketAndEmit(user_id, event, message) {
-  try {
-    const hunter_id = await convertUserIdToHunterId(user_id);
-    const socketId = userSockets.get(hunter_id);
-    if (socketId) {
-      if (io.sockets.sockets.get(socketId)) {
-        io.to(socketId).emit(event, message);
-        console.log(`Notification sent to ${hunter_id} at socket ${socketId}`);
-      } else {
-        console.error(`Socket ID ${socketId} not connected for hunter_id ${hunter_id}`);
-      }
-    } else {
-      console.error(`No socket ID found for hunter_id ${hunter_id}`);
-    }
-  } catch (error) {
-    console.error(`Error in findUserSocketAndEmit for user_id ${user_id}: ${error}`);
-  }
-}
-
-
-async function convertUserIdToHunterId(user_id) {
-  try {
-    console.log('Converting user_id to hunter_id for user_id:', user_id);
-
-    const result = await pool.query('SELECT hunter_id FROM users WHERE user_id = $1', [user_id]);
-
-    console.log('Query result:', result);
-
-    if (result.rows.length > 0) {
-      const hunter_id = result.rows[0].hunter_id;
-      console.log('Found hunter_id:', hunter_id);
-      return hunter_id;
-    } else {
-      console.log('No hunter_id found for user_id:', user_id);
-      throw new Error(`Hunter ID not found for user ID: ${user_id}`);
-    }
-  } catch (error) {
-    console.error('Error converting user ID to hunter ID:', error);
-    throw error; // Rethrow the error to be handled by the caller
-  }
-}
-
-function processNotificationMessage(message) {
-  const notificationData = JSON.parse(message);
-  const { user_id, title } = notificationData;
-
-  // Format the notification to include only the title
-  const formattedNotification = {
-    title: title
-    // No additional fields; keeping it minimalist
-  };
-
-  findUserSocketAndEmit(user_id, 'notification', formattedNotification);
-}
-
-
-// Function to start listening for messages on the Redis queue
-function listenForNotifications() {
-  (function loop() {
-    redis.blpop('notification_queue', 0, async (err, [queue, message]) => {
-      if (err) {
-        console.error('Error listening for messages:', err);
-        setTimeout(loop, 1000); // Retry after a second in case of error
-        return;
-      }
-      console.log(`Received message from queue ${queue}: ${message}`);
-      processNotificationMessage(message);
-      loop();
-    });
-  })();
-}
-
-// Call the function to start listening for notifications
-listenForNotifications();
+// const redis = new Redis({
+//   host: process.env.REDIS_HOST, 
+//   port: process.env.REDIS_PORT, 
+//   password: process.env.REDIS_PASSWORD,
+// });
 
 
 // Stripe Payments
@@ -1197,6 +1076,7 @@ app.post('/user/webhook', authenticateToken, async (req, res) => {
 
 
 const PORT = process.env.PORT || 3001;
-  httpServer.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
