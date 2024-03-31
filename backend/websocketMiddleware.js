@@ -1,29 +1,39 @@
 const { Server } = require("socket.io");
 const { jwtVerify } = require('jose');
 const redisSubscriber = require('./redisSubscriber');
+const cookie = require('cookie');
 const secret = new Uint8Array(Buffer.from(process.env.JWT_SECRET_KEY, 'base64'));
 
 module.exports = (server, app) => {
     const io = new Server(server, {
         cors: {
-            origin: "https://dev-noisse.vercel.app/",
-            methods: ["GET", "POST"]
+            origin: "https://dev-noisse.vercel.app",
+            methods: ["GET", "POST"],
+            credentials: true
         }
     });
 
     io.use(async (socket, next) => {
         try {
-            console.log("Received token:", socket.handshake.auth.token); // Log the received token
-    
-            const { payload } = await jwtVerify(socket.handshake.auth.token, secret);
-            console.log("Verified payload:", payload); // Log the verified payload
-    
-            if (!payload || !payload.user || !payload.user.id) throw new Error('Invalid token payload');
-    
-            socket.user = { id: payload.user.id }; // Attach user info to the socket
-            next();
+            if (socket.handshake.headers && socket.handshake.headers.cookie) {
+                const cookies = cookie.parse(socket.handshake.headers.cookie);
+                const token = cookies['token']; // Replace 'token' with your cookie name
+
+                if (!token) {
+                    throw new Error('No token provided');
+                }
+
+                const { payload } = await jwtVerify(token, secret);
+                if (!payload || !payload.user || !payload.user.id) {
+                    throw new Error('Invalid token payload');
+                }
+
+                socket.user = { id: payload.user.id };
+                next();
+            } else {
+                throw new Error('No cookie headers found');
+            }
         } catch (error) {
-            console.error("WebSocket authentication error:", error);
             next(new Error('Authentication error'));
         }
     });
