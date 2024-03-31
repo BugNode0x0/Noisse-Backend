@@ -29,19 +29,22 @@ redis.on('reconnecting', () => {
     console.log('Reconnecting to Redis...');
 });
 
-// Subscribe to the 'notification_queue' channel
-redis.subscribe('notification_queue', (err, count) => {
-    if (err) {
-        console.error('Failed to subscribe: ', err);
-    } else {
-        console.log(`Subscribed successfully to ${count} channel(s).`);
-    }
-});
-
-// Handle incoming messages
-redis.on('message', (channel, message) => {
-    console.log(`Received message from ${channel}: ${message}`);
-    // Implement your message handling logic here
-});
-
-module.exports = redis;
+function pollMessages(callback) {
+    redis.brpop('notification_queue', 0).then(message => {
+      if (message) {
+        const [queue, data] = message;
+        console.log(`Received message from ${queue}: ${data}`);
+        // Pass the data to the callback
+        callback(data);
+      }
+    
+      // Continue polling
+      setImmediate(() => pollMessages(callback));
+    }).catch(err => {
+      console.error('Error polling messages:', err);
+      // Retry polling after a delay
+      setTimeout(() => pollMessages(callback), 5000);
+    });
+  }
+  
+  module.exports = { redis, pollMessages };

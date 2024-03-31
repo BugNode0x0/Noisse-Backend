@@ -1,7 +1,7 @@
 const { Server } = require("socket.io");
 const { jwtVerify } = require('jose');
-const redisSubscriber = require('./redisSubscriber');
 const cookie = require('cookie');
+const { pollMessages } = require('./redisSubscriber');
 const secret = new Uint8Array(Buffer.from(process.env.JWT_SECRET_KEY, 'base64'));
 
 module.exports = (server, app) => {
@@ -61,12 +61,12 @@ module.exports = (server, app) => {
         });
     });
 
-    function handleRedisMessage(channel, message) {
-        console.log(`Received message on channel ${channel}: ${message}`);
+    function handleRedisMessage(data) {
+        console.log(`Received message: ${data}`);
         
         try {
             // Parse the incoming message
-            const notification = JSON.parse(message);
+            const notification = JSON.parse(data);
     
             // Verify the message structure
             if (!notification || typeof notification !== 'object' || !notification.user_id || !notification.message) {
@@ -80,7 +80,7 @@ module.exports = (server, app) => {
             console.log(`Processing notification for user ${userId}: ${notificationMessage}`);
     
             // Find the socket ID corresponding to the user ID
-            const socketId = userSockets.get(userId);
+            const socketId = userSockets.get(userId.toString());
             if (socketId) {
                 console.log(`Emitting notification to user ${userId} on socket ${socketId}`);
                 // Emit the notification to the specific socket
@@ -89,11 +89,12 @@ module.exports = (server, app) => {
                 console.log(`No active socket for user ${userId}`);
             }
         } catch (error) {
-            console.error(`Error handling Redis message on channel ${channel}:`, error);
+            console.error(`Error handling Redis message:`, error);
         }
     }
     
-    redisSubscriber.on('message', handleRedisMessage);
+    // Start polling messages from Redis
+    pollMessages(handleRedisMessage);
 
     app.set('io', io);
 };
