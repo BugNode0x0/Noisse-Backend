@@ -19,9 +19,11 @@ module.exports = (server, app) => {
             const { payload } = await jwtVerify(token, secret);
             if (!payload || !payload.user || !payload.user.id) throw new Error('Invalid token payload');
 
+            console.log(`WebSocket connection attempt with user ID: ${payload.user.id}`);
             socket.user = { id: payload.user.id }; // Attach user info to the socket
             next();
         } catch (error) {
+            console.error(`WebSocket authentication error: ${error.message}`);
             next(new Error('Authentication error'));
         }
     });
@@ -29,7 +31,7 @@ module.exports = (server, app) => {
     const userSockets = new Map();
 
     io.on('connection', (socket) => {
-        console.log(`User connected: ${socket.user.id}`);
+        console.log(`User connected: ${socket.user.id}, Socket ID: ${socket.id}`);
         userSockets.set(socket.user.id, socket.id);
 
         // Send keep-alive messages every 5 seconds
@@ -39,7 +41,7 @@ module.exports = (server, app) => {
 
         // Handle ping-pong
         socket.on('pong', () => {
-            console.log(`Pong received from ${socket.user.id}`);
+            console.log(`Pong received from user ${socket.user.id}`);
         });
 
         socket.on('disconnect', () => {
@@ -81,7 +83,7 @@ module.exports = (server, app) => {
         }
     }
     
-    redisSubscriber.on('message', handleRedisMessage);      
+    redisSubscriber.on('message', handleRedisMessage);
 
-    app.set('io', io); 
+    app.set('io', io);
 };
