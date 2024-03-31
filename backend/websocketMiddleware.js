@@ -3,7 +3,7 @@ const { jwtVerify } = require('jose');
 
 const secret = new Uint8Array(Buffer.from(process.env.JWT_SECRET_KEY, 'base64'));
 
-module.exports = (server) => {
+module.exports = (server, app) => {
     const io = new Server(server, {
         cors: {
             origin: "https://dev-noisse.vercel.app/",
@@ -44,4 +44,5 @@ module.exports = (server) => {
             clearInterval(keepAliveInterval);
         });
     });
+    app.set('io', io); 
 };
