@@ -1,6 +1,6 @@
 const { Server } = require("socket.io");
 const { jwtVerify } = require('jose');
-
+const redisSubscriber = require('./redisSubscriber');
 const secret = new Uint8Array(Buffer.from(process.env.JWT_SECRET_KEY, 'base64'));
 
 module.exports = (server, app) => {
@@ -26,8 +26,11 @@ module.exports = (server, app) => {
         }
     });
 
+    const userSockets = new Map();
+
     io.on('connection', (socket) => {
         console.log(`User connected: ${socket.user.id}`);
+        userSockets.set(socket.user.id, socket.id);
 
         // Send keep-alive messages every 5 seconds
         const keepAliveInterval = setInterval(() => {
@@ -41,8 +44,24 @@ module.exports = (server, app) => {
 
         socket.on('disconnect', () => {
             console.log(`User disconnected: ${socket.user.id}`);
+            userSockets.delete(socket.user.id);
             clearInterval(keepAliveInterval);
         });
     });
+
+    function handleRedisMessage(channel, message) {
+        try {
+            const notification = JSON.parse(message);
+            const socketId = userSockets.get(notification.user_id);
+            if (socketId) {
+                io.to(socketId).emit('notification', notification.message);
+            }
+        } catch (error) {
+            console.error('Error handling Redis message', error);
+        }
+    }
+
+    redisSubscriber.on('message', handleRedisMessage);
+
     app.set('io', io); 
 };
