@@ -11,8 +11,6 @@ const axios = require('axios');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const Stripe = require('stripe');
-//const Redis = require('ioredis');
-//const userSockets = new Map();
 
 // CONFIG //
 require('dotenv').config(); 
