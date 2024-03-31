@@ -51,17 +51,27 @@ module.exports = (server, app) => {
 
     function handleRedisMessage(channel, message) {
         try {
+            // Parse the incoming message
             const notification = JSON.parse(message);
-            const socketId = userSockets.get(notification.user_id);
+    
+            // Extract user_id and message
+            const userId = notification.user_id;
+            const notificationMessage = notification.message;
+    
+            // Find the socket ID corresponding to the user ID
+            const socketId = userSockets.get(userId);
             if (socketId) {
-                io.to(socketId).emit('notification', notification.message);
+                // Emit the notification to the specific socket
+                io.to(socketId).emit('notification', notificationMessage);
+            } else {
+                console.log(`No active socket for user ${userId}`);
             }
         } catch (error) {
-            console.error('Error handling Redis message', error);
+            console.error('Error handling Redis message:', error);
         }
     }
-
-    redisSubscriber.on('message', handleRedisMessage);
+    
+    redisSubscriber.on('message', handleRedisMessage);    
 
     app.set('io', io); 
 };
