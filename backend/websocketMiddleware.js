@@ -1,7 +1,7 @@
 const { Server } = require("socket.io");
 const { jwtVerify } = require('jose');
 const cookie = require('cookie');
-const { pollMessages } = require('./redisSubscriber');
+const { startPolling } = require('./redisSubscriber');
 const secret = new Uint8Array(Buffer.from(process.env.JWT_SECRET_KEY, 'base64'));
 
 module.exports = (server, app) => {
@@ -94,7 +94,7 @@ module.exports = (server, app) => {
     }
     
     // Start polling messages from Redis
-    pollMessages(handleRedisMessage);
+    startPolling(userSockets, handleRedisMessage); 
 
     app.set('io', io);
 };

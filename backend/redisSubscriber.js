@@ -2,49 +2,61 @@
 require('dotenv').config();
 const Redis = require('ioredis');
 
-// Extract the required environment variables
 const { REDIS_HOST, REDIS_PORT, REDIS_PASSWORD } = process.env;
 
-// Create a new Redis instance
-const redis = new Redis({
+// Create a new Redis instance for subscribing
+const subscriberRedis = new Redis({
     host: REDIS_HOST,
     port: REDIS_PORT,
     password: REDIS_PASSWORD,
     retryStrategy: times => Math.min(times * 50, 2000)
 });
 
-redis.on('connect', () => {
-    console.log('Connected to Redis successfully.');
+// Create a separate Redis instance for polling and dequeuing
+const pollerRedis = new Redis({
+    host: REDIS_HOST,
+    port: REDIS_PORT,
+    password: REDIS_PASSWORD,
+    retryStrategy: times => Math.min(times * 50, 2000)
 });
 
-redis.on('error', (error) => {
-    console.error(`Redis error: ${error}`);
-});
+subscriberRedis.on('connect', () => console.log('Subscriber Redis connected'));
+subscriberRedis.on('error', (error) => console.error('Subscriber Redis error:', error));
+subscriberRedis.on('close', () => console.log('Subscriber Redis connection closed'));
+subscriberRedis.on('reconnecting', () => console.log('Reconnecting to Subscriber Redis...'));
 
-redis.on('close', () => {
-    console.log('Redis connection closed.');
-});
+pollerRedis.on('connect', () => console.log('Poller Redis connected'));
+pollerRedis.on('error', (error) => console.error('Poller Redis error:', error));
+pollerRedis.on('close', () => console.log('Poller Redis connection closed'));
+pollerRedis.on('reconnecting', () => console.log('Reconnecting to Poller Redis...'));
 
-redis.on('reconnecting', () => {
-    console.log('Reconnecting to Redis...');
-});
+function startPolling(userSockets, callback) {
+    function poll() {
+        pollerRedis.lrange('notification_queue', 0, 0).then(messages => {
+            if (messages.length > 0) {
+                const message = messages[0];
+                const notification = JSON.parse(message);
+                const userId = notification.user_id.toString();
 
-function pollMessages(callback) {
-    redis.brpop('notification_queue', 0).then(message => {
-      if (message) {
-        const [queue, data] = message;
-        console.log(`Received message from ${queue}: ${data}`);
-        // Pass the data to the callback
-        callback(data);
-      }
-    
-      // Continue polling
-      setImmediate(() => pollMessages(callback));
-    }).catch(err => {
-      console.error('Error polling messages:', err);
-      // Retry polling after a delay
-      setTimeout(() => pollMessages(callback), 5000);
-    });
-  }
-  
-  module.exports = { redis, pollMessages };
+                if (userSockets.has(userId)) {
+                    pollerRedis.lpop('notification_queue').then(() => {
+                        console.log(`Dequeued and processing message for user ${userId}`);
+                        callback(notification);
+                    }).catch(err => console.error('Error dequeuing message:', err));
+                } else {
+                    console.log(`No active socket for user ${userId}. Message requeued.`);
+                    setTimeout(poll, 5000);
+                }
+            } else {
+                setTimeout(poll, 5000);
+            }
+        }).catch(err => {
+            console.error('Error polling messages:', err);
+            setTimeout(poll, 5000);
+        });
+    }
+
+    poll();
+}
+
+module.exports = { subscriberRedis, startPolling };
