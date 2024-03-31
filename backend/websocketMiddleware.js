@@ -13,17 +13,17 @@ module.exports = (server, app) => {
 
     io.use(async (socket, next) => {
         try {
-            const token = socket.handshake.auth.token;
-            if (!token) throw new Error('No token provided');
-
-            const { payload } = await jwtVerify(token, secret);
+            console.log("Received token:", socket.handshake.auth.token); // Log the received token
+    
+            const { payload } = await jwtVerify(socket.handshake.auth.token, secret);
+            console.log("Verified payload:", payload); // Log the verified payload
+    
             if (!payload || !payload.user || !payload.user.id) throw new Error('Invalid token payload');
-
-            console.log(`WebSocket connection attempt with user ID: ${payload.user.id}`);
+    
             socket.user = { id: payload.user.id }; // Attach user info to the socket
             next();
         } catch (error) {
-            console.error(`WebSocket authentication error: ${error.message}`);
+            console.error("WebSocket authentication error:", error);
             next(new Error('Authentication error'));
         }
     });
