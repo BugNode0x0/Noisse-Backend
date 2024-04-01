@@ -43,14 +43,10 @@ module.exports = (server, app) => {
     io.on('connection', async (socket) => {
         console.log(`User connected: ${socket.user.id}, Socket ID: ${socket.id}`);
         try {
-            const hunterId = await getHunterIdFromUserId(socket.user.id);
-            if (hunterId) {
-                userSockets.set(hunterId, socket.id); // Map hunter_id to socket ID
-                console.log(`WebSocket connection established for hunter ID: ${hunterId} with socket ID: ${socket.id}`);
-                socket.emit('notification', `Hello, your WebSocket is connected with hunter ID: ${hunterId}`);
-            } else {
-                console.warn(`No hunter ID found for user ID: ${socket.user.id}`);
-            }
+            const hunterId = socket.user.id;
+            userSockets.set(hunterId, socket.id);
+            console.log(`WebSocket connection established for hunter ID: ${hunterId} with socket ID: ${socket.id}`);
+            socket.emit('notification', `Hello, your WebSocket is connected with hunter ID: ${hunterId}`);
         } catch (error) {
             console.error(`Error fetching hunter ID for user: ${socket.user.id}, error: ${error}`);
         }
@@ -64,8 +60,8 @@ module.exports = (server, app) => {
         });
 
         socket.on('disconnect', () => {
-            console.log(`User disconnected: ${hunterId || socket.user.id}`);
-            userSockets.delete(hunterId || socket.user.id);
+            console.log(`User disconnected: ${socket.user.id}`);
+            userSockets.delete(socket.user.id);
             clearInterval(keepAliveInterval);
         });
     });
@@ -78,12 +74,11 @@ module.exports = (server, app) => {
                 console.error('Invalid notification format:', data);
                 return;
             }
-            // Assuming the 'user_id' in the Redis message is an integer
-            const userIdFromRedis = parseInt(notification.user_id); 
+            const userIdFromRedis = parseInt(notification.user_id);
             const notificationMessage = notification.message;
+    
             console.log(`Processing notification for user ${userIdFromRedis}: ${notificationMessage}`);
             
-            // Fetch the corresponding hunter_id for the userId from Redis message
             const hunterId = await getHunterIdFromUserId(userIdFromRedis);
             if (hunterId && userSockets.has(hunterId)) {
                 const socketId = userSockets.get(hunterId);
@@ -95,7 +90,7 @@ module.exports = (server, app) => {
         } catch (error) {
             console.error(`Error handling Redis message: ${error}`);
         }
-    }        
+    }
 
     app.set('io', io);
 };
