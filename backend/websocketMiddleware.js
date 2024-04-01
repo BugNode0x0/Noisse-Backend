@@ -78,16 +78,14 @@ module.exports = (server, app) => {
                 console.error('Invalid notification format:', data);
                 return;
             }
-            const userId = notification.user_id; 
+            // Assuming the 'user_id' in the Redis message is an integer
+            const userIdFromRedis = parseInt(notification.user_id); 
             const notificationMessage = notification.message;
-            console.log(`Processing notification for user ${userId}: ${notificationMessage}`);
-    
-            const hunterId = await getHunterIdFromUserId(userId);
-            if (!hunterId) {
-                console.warn(`Hunter ID not found for user ID ${userId}`);
-                return;
-            }
-            if (userSockets.has(hunterId)) {
+            console.log(`Processing notification for user ${userIdFromRedis}: ${notificationMessage}`);
+            
+            // Fetch the corresponding hunter_id for the userId from Redis message
+            const hunterId = await getHunterIdFromUserId(userIdFromRedis);
+            if (hunterId && userSockets.has(hunterId)) {
                 const socketId = userSockets.get(hunterId);
                 console.log(`Emitting notification to hunter ID ${hunterId} on socket ${socketId}`);
                 io.to(socketId).emit('notification', notificationMessage);
@@ -97,7 +95,7 @@ module.exports = (server, app) => {
         } catch (error) {
             console.error(`Error handling Redis message: ${error}`);
         }
-    }    
+    }        
 
     app.set('io', io);
 };
