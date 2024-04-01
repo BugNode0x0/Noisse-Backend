@@ -81,8 +81,8 @@ module.exports = (server, app) => {
                 throw new Error('Invalid notification format');
             }
     
-            // Extract user_id and message
-            const userId = notification.user_id; // This should be an integer if the message format is like {"user_id": 41, "message": "Message content"}
+            // Extract user_id and message from the Redis message
+            const userId = notification.user_id; // This should be an integer as per your Redis message format
             const notificationMessage = notification.message;
     
             console.log(`Processing notification for user ${userId}: ${notificationMessage}`);
@@ -99,7 +99,7 @@ module.exports = (server, app) => {
         } catch (error) {
             console.error(`Error handling Redis message: ${error}`);
         }
-    }
+    }    
 
     // Skipping Redis message handling for now to focus on WebSocket connection setup
 
