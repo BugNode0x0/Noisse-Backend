@@ -45,7 +45,7 @@ module.exports = (server, app) => {
         try {
             const hunterId = await getHunterIdFromUserId(socket.user.id);
             if (hunterId) {
-                userSockets.set(hunterId, socket.id);
+                userSockets.set(hunterId, socket.id); // Map hunter_id to socket ID
                 console.log(`WebSocket connection established for hunter ID: ${hunterId} with socket ID: ${socket.id}`);
                 socket.emit('notification', `Hello, your WebSocket is connected with hunter ID: ${hunterId}`);
             } else {
