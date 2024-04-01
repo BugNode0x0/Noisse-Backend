@@ -99,7 +99,7 @@ module.exports = (server, app) => {
         } catch (error) {
             console.error(`Error handling Redis message: ${error}`);
         }
-    }   
+    }    
 
     // Skipping Redis message handling for now to focus on WebSocket connection setup
 
