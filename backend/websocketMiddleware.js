@@ -42,13 +42,17 @@ module.exports = (server, app) => {
 
     io.on('connection', async (socket) => {
         console.log(`User connected: ${socket.user.id}, Socket ID: ${socket.id}`);
-        const hunterId = await getHunterIdFromUserId(socket.user.id);
-        if (hunterId) {
-            userSockets.set(hunterId, socket.id);
-            console.log(`WebSocket connection established for hunter ID: ${hunterId} with socket ID: ${socket.id}`);
-            socket.emit('notification', `Hello, your WebSocket is connected with hunter ID: ${hunterId}`);
-        } else {
-            console.log(`No hunter ID found for user ID: ${socket.user.id}`);
+        try {
+            const hunterId = await getHunterIdFromUserId(socket.user.id);
+            if (hunterId) {
+                userSockets.set(hunterId, socket.id);
+                console.log(`WebSocket connection established for hunter ID: ${hunterId} with socket ID: ${socket.id}`);
+                socket.emit('notification', `Hello, your WebSocket is connected with hunter ID: ${hunterId}`);
+            } else {
+                console.log(`No hunter ID found for user ID: ${socket.user.id}`);
+            }
+        } catch (error) {
+            console.error(`Error fetching hunter ID for user: ${socket.user.id}, error: ${error}`);
         }
 
         const keepAliveInterval = setInterval(() => {
@@ -65,6 +69,37 @@ module.exports = (server, app) => {
             clearInterval(keepAliveInterval);
         });
     });
+
+    async function handleRedisMessage(data) {
+        console.log(`Received message: ${data}`);
+        try {
+            // Parse the incoming message
+            const notification = JSON.parse(data);
+    
+            // Verify the message structure
+            if (!notification || typeof notification !== 'object' || !notification.user_id || !notification.message) {
+                throw new Error('Invalid notification format');
+            }
+    
+            // Extract user_id and message
+            const userId = notification.user_id; // This should be an integer if the message format is like {"user_id": 41, "message": "Message content"}
+            const notificationMessage = notification.message;
+    
+            console.log(`Processing notification for user ${userId}: ${notificationMessage}`);
+    
+            // Fetch the corresponding hunter_id
+            const hunterId = await getHunterIdFromUserId(userId);
+            if (hunterId && userSockets.has(hunterId)) {
+                const socketId = userSockets.get(hunterId);
+                console.log(`Emitting notification to hunter ID ${hunterId} on socket ${socketId}`);
+                io.to(socketId).emit('notification', notificationMessage);
+            } else {
+                console.log(`No active socket or hunter ID found for user ID: ${userId}`);
+            }
+        } catch (error) {
+            console.error(`Error handling Redis message: ${error}`);
+        }
+    }
 
     // Skipping Redis message handling for now to focus on WebSocket connection setup
 
