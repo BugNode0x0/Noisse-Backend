@@ -1,6 +1,8 @@
 // redisSubscriber.js
-require('dotenv').config();
 const Redis = require('ioredis');
+require('dotenv').config();
+const { getHunterIdFromUserId } = require('./dbUtils');
+
 
 const { REDIS_HOST, REDIS_PORT, REDIS_PASSWORD } = process.env;
 
@@ -30,33 +32,31 @@ pollerRedis.on('error', (error) => console.error('Poller Redis error:', error));
 pollerRedis.on('close', () => console.log('Poller Redis connection closed'));
 pollerRedis.on('reconnecting', () => console.log('Reconnecting to Poller Redis...'));
 
-function startPolling(userSockets, callback) {
-    function poll() {
-        pollerRedis.lrange('notification_queue', 0, 0).then(messages => {
+async function startPolling(userSockets, callback) {
+    async function poll() {
+        try {
+            const messages = await pollerRedis.lrange('notification_queue', 0, 0);
             if (messages.length > 0) {
                 const message = messages[0];
                 const notification = JSON.parse(message);
                 const userId = notification.user_id.toString();
 
-                if (userSockets.has(userId)) {
-                    pollerRedis.lpop('notification_queue').then(() => {
-                        console.log(`Dequeued and processing message for user ${userId}`);
-                        callback(notification);
-                    }).catch(err => console.error('Error dequeuing message:', err));
+                const hunterId = await getHunterIdFromUserId(userId);
+                if (hunterId && userSockets.has(hunterId)) {
+                    await pollerRedis.lpop('notification_queue');
+                    console.log(`Dequeued and processing message for hunter ID ${hunterId}`);
+                    callback({ ...notification, hunterId }); // Pass hunterId in the notification object
                 } else {
-                    console.log(`No active socket for user ${userId}. Message requeued.`);
-                    setTimeout(poll, 5000);
+                    console.log(`No active socket for hunter ID ${hunterId || 'undefined'}. Message requeued.`);
                 }
-            } else {
-                setTimeout(poll, 5000);
             }
-        }).catch(err => {
-            console.error('Error polling messages:', err);
-            setTimeout(poll, 5000);
-        });
+        } catch (err) {
+            console.error('Error in polling messages:', err);
+        }
+        setTimeout(poll, 5000); // Continue polling
     }
 
-    poll();
+    poll(); // Start the polling process
 }
 
 module.exports = { subscriberRedis, startPolling };
