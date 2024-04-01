@@ -45,13 +45,22 @@ const pool = new Pool({
 });
 
 
-// Redis configuration
-// const redis = new Redis({
-//   host: process.env.REDIS_HOST, 
-//   port: process.env.REDIS_PORT, 
-//   password: process.env.REDIS_PASSWORD,
-// });
-
+// For Notification purposes
+async function getHunterIdFromUserId(userId) {
+  try {
+      const query = 'SELECT hunter_id FROM users WHERE user_id = $1';
+      const result = await pool.query(query, [userId]);
+      if (result.rows.length > 0) {
+          return result.rows[0].hunter_id; // Return the hunter_id
+      } else {
+          console.log(`User with ID ${userId} not found`);
+          return null; // User not found
+      }
+  } catch (err) {
+      console.error(`Database error while fetching hunter_id for user_id ${userId}:`, err);
+      throw err; // Rethrow the error for caller to handle
+  }
+}
 
 // Stripe Payments
 app.post('/cancel-subscription', authenticateToken, async (req, res) => {
@@ -1081,7 +1090,7 @@ app.post('/user/webhook', authenticateToken, async (req, res) => {
 });
 
 
-
+module.exports = { getHunterIdFromUserId };
 websocketMiddleware(server, app);
 
 const PORT = process.env.PORT || 3001;

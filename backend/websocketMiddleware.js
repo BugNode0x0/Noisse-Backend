@@ -2,6 +2,7 @@ const { Server } = require("socket.io");
 const { jwtVerify } = require('jose');
 const cookie = require('cookie');
 const { startPolling } = require('./redisSubscriber');
+const { getHunterIdFromUserId } = require('./server.js');
 const secret = new Uint8Array(Buffer.from(process.env.JWT_SECRET_KEY, 'base64'));
 
 module.exports = (server, app) => {
@@ -61,9 +62,8 @@ module.exports = (server, app) => {
         });
     });
 
-    function handleRedisMessage(data) {
+    async function handleRedisMessage(data) {
         console.log(`Received message: ${data}`);
-        
         try {
             // Parse the incoming message
             const notification = JSON.parse(data);
@@ -80,18 +80,21 @@ module.exports = (server, app) => {
             console.log(`Processing notification for user ${userId}: ${notificationMessage}`);
     
             // Find the socket ID corresponding to the user ID
-            const socketId = userSockets.get(userId.toString());
-            if (socketId) {
-                console.log(`Emitting notification to user ${userId} on socket ${socketId}`);
-                // Emit the notification to the specific socket
-                io.to(socketId).emit('notification', notificationMessage);
-            } else {
-                console.log(`No active socket for user ${userId}`);
+            const hunterId = await getHunterIdFromUserId(userId);
+            if (hunterId) {
+                // Check if there is an active socket for the hunterId
+                if (userSockets.has(hunterId)) {
+                    const socketId = userSockets.get(hunterId);
+                    console.log(`Emitting notification to hunter ID ${hunterId} on socket ${socketId}`);
+                    io.to(socketId).emit('notification', notificationMessage);
+                } else {
+                    console.log(`No active socket for hunter ID ${hunterId}`);
+                }
             }
         } catch (error) {
-            console.error(`Error handling Redis message:`, error);
-        }
+            console.error(`Error handling Redis message: ${error}`);
     }
+}
     
     // Start polling messages from Redis
     startPolling(userSockets, handleRedisMessage); 
