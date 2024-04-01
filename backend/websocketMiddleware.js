@@ -2,7 +2,7 @@ const { Server } = require("socket.io");
 const { jwtVerify } = require('jose');
 const cookie = require('cookie');
 const { startPolling } = require('./redisSubscriber');
-const { getHunterIdFromUserId } = require('./server.js');
+const { getHunterIdFromUserId } = require('./dbUtils.js');
 const secret = new Uint8Array(Buffer.from(process.env.JWT_SECRET_KEY, 'base64'));
 
 module.exports = (server, app) => {
