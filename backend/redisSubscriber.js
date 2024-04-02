@@ -56,7 +56,8 @@ async function startPolling(userSockets, callback) {
             if (userSockets.has(hunterId)) {
                 await pollerRedis.lpop('notification_queue');
                 console.log(`Dequeued message for hunter ID ${hunterId}`);
-                callback({ ...notification, hunterId });
+                callback(JSON.stringify({ ...notification, hunterId }));
+
             } else {
                 console.warn(`No active socket for hunter ID ${hunterId}. Message requeued.`);
                 setTimeout(poll, 5000);
