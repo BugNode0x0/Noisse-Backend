@@ -43,23 +43,20 @@ module.exports = (server, app) => {
 
     io.on('connection', async (socket) => {
         console.log(`User connected: ${socket.user.id}, Socket ID: ${socket.id}`);
-        try {
-            const hunterId = socket.user.id;
-            userSockets.set(hunterId, socket.id);
-            console.log(`WebSocket connection established for hunter ID: ${hunterId} with socket ID: ${socket.id}`);
-            socket.emit('notification', JSON.stringify({ message: `Hello, your WebSocket is connected with hunter ID: ${hunterId}` }));
-        } catch (error) {
-            console.error(`Error fetching hunter ID for user: ${socket.user.id}, error: ${error}`);
-        }
-
+        const hunterId = socket.user.id;
+        userSockets.set(hunterId, socket.id);
+        console.log(`WebSocket connection established for hunter ID: ${hunterId} with socket ID: ${socket.id}`);
+        
+        // Removed the socket.emit line to stop sending the initial message
+    
         const keepAliveInterval = setInterval(() => {
             socket.emit('keep-alive', 'ping');
         }, 5000);
-
+    
         socket.on('pong', () => {
             console.log(`Pong received from user ${socket.user.id}`);
         });
-
+    
         socket.on('disconnect', () => {
             console.log(`User disconnected: ${socket.user.id}`);
             userSockets.delete(socket.user.id);
