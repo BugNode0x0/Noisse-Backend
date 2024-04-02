@@ -70,5 +70,4 @@ async function startPolling(userSockets, callback) {
     poll();
 }
 
-
 module.exports = { subscriberRedis, startPolling };
