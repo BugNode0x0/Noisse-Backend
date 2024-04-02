@@ -34,41 +34,40 @@ pollerRedis.on('reconnecting', () => console.log('Reconnecting to Poller Redis..
 
 async function startPolling(userSockets, callback) {
     async function poll() {
-        console.log('Polling Redis for messages...');
+        console.log('Starting new poll iteration');
         try {
+            console.log('Attempting to read messages from notification_queue...');
             const messages = await pollerRedis.lrange('notification_queue', 0, 0);
+            
             if (messages.length === 0) {
-                console.log('No messages in queue.');
-                setTimeout(poll, 5000);
-                return;
-            }
-            console.log(`Found message in queue: ${messages[0]}`);
-            const notification = JSON.parse(messages[0]);
-            const userId = notification.user_id;
-            console.log(`Notification for user ID ${userId} being processed`);
-
-            const hunterId = await getHunterIdFromUserId(userId);
-            if (!hunterId) {
-                console.warn(`Hunter ID not found for user ID ${userId}. Requeuing message.`);
-                setTimeout(poll, 5000);
-                return;
-            }
-            if (userSockets.has(hunterId)) {
-                await pollerRedis.lpop('notification_queue');
-                console.log(`Dequeued message for hunter ID ${hunterId}`);
-                callback(JSON.stringify({ ...notification, hunterId }));
-
+                console.log('No messages in queue. Will try again in 5 seconds.');
             } else {
-                console.warn(`No active socket for hunter ID ${hunterId}. Message requeued.`);
-                setTimeout(poll, 5000);
+                console.log(`Found message in queue: ${messages[0]}`);
+                const notification = JSON.parse(messages[0]);
+                const userId = notification.user_id;
+                console.log(`Notification for user ID ${userId} being processed`);
+
+                const hunterId = await getHunterIdFromUserId(userId);
+                if (!hunterId) {
+                    console.warn(`Hunter ID not found for user ID ${userId}. Requeuing message.`);
+                } else if (!userSockets.has(hunterId)) {
+                    console.warn(`No active socket for hunter ID ${hunterId}. Message requeued.`);
+                } else {
+                    console.log(`Dequeuing message for hunter ID ${hunterId}`);
+                    await pollerRedis.lpop('notification_queue');
+                    callback(JSON.stringify({ ...notification, hunterId }));
+                }
             }
         } catch (err) {
             console.error('Error in polling messages:', err);
+        } finally {
+            console.log('Setting timeout for next poll iteration');
             setTimeout(poll, 5000);
         }
     }
+
+    console.log('Initiating polling...');
     poll();
 }
-
 
 module.exports = { subscriberRedis, startPolling };
