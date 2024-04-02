@@ -47,7 +47,7 @@ module.exports = (server, app) => {
             const hunterId = socket.user.id;
             userSockets.set(hunterId, socket.id);
             console.log(`WebSocket connection established for hunter ID: ${hunterId} with socket ID: ${socket.id}`);
-            socket.emit('notification', `Hello, your WebSocket is connected with hunter ID: ${hunterId}`);
+            socket.emit('notification', JSON.stringify({ message: `Hello, your WebSocket is connected with hunter ID: ${hunterId}` }));
         } catch (error) {
             console.error(`Error fetching hunter ID for user: ${socket.user.id}, error: ${error}`);
         }
