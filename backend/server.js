@@ -1071,28 +1071,29 @@ app.get('/historical-urls', authenticateToken, checkSubscription, async (req, re
   const pageSize = parseInt(req.query.pageSize) || 10;
   const search = req.query.search ? `%${req.query.search}%` : '%';
   const offset = (page - 1) * pageSize;
-  const hunterId = req.user.id;
+  const hunterId = req.user.id; // This should be the string ID from the users table.
   const format = req.query.format;
 
   try {
     const selectQuery = `
-      SELECT DISTINCT hr.url
+      SELECT hr.url
       FROM hurl_results hr
       INNER JOIN user_domains ud ON hr.domain_id = ud.domain_id
-      WHERE ud.user_id = $1
+      INNER JOIN users u ON ud.user_id = u.user_id
+      WHERE u.hunter_id = $1
       AND hr.url ILIKE $2
       ORDER BY hr.url
       LIMIT $3 OFFSET $4`;
 
     const countQuery = `
-      SELECT COUNT(DISTINCT hr.url)
+      SELECT COUNT(hr.url)
       FROM hurl_results hr
       INNER JOIN user_domains ud ON hr.domain_id = ud.domain_id
-      WHERE ud.user_id = $1
+      INNER JOIN users u ON ud.user_id = u.user_id
+      WHERE u.hunter_id = $1
       AND hr.url ILIKE $2`;
 
     if (format === 'csv') {
-      // Fetch all data for CSV
       const selectResult = await pool.query(selectQuery, [hunterId, search, 1000000, 0]);
       const parser = new Parser({
         fields: ['url']
@@ -1106,8 +1107,8 @@ app.get('/historical-urls', authenticateToken, checkSubscription, async (req, re
     const countResult = await pool.query(countQuery, [hunterId, search]);
     const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
 
-    res.status(200).json({
-      urls: selectResult.rows.map(row => row.url), // Map rows to a list of URLs
+    res.json({
+      urls: selectResult.rows.map(row => row.url),
       total: parseInt(countResult.rows[0].count),
       page,
       pageSize
@@ -1117,6 +1118,7 @@ app.get('/historical-urls', authenticateToken, checkSubscription, async (req, re
     res.status(500).send('Internal server error');
   }
 });
+
 
 websocketMiddleware(server, app);
 
