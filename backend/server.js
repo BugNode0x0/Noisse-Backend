@@ -12,13 +12,11 @@ const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const Stripe = require('stripe');
 
-// CONFIG //
 require('dotenv').config(); 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const server = http.createServer(app);
-
 
 const corsOptions = {
   origin: 'https://dev-noisse.vercel.app',
@@ -28,12 +26,10 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-
 const authRoutes = require('./auth');
 app.use(express.json());
 app.use(cookieParser());
 app.use('/portal', authRoutes);
-
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -42,8 +38,6 @@ const pool = new Pool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
 });
-
-
 
 // Stripe Payments
 app.post('/cancel-subscription', authenticateToken, async (req, res) => {
@@ -1066,6 +1060,60 @@ app.post('/user/webhook', authenticateToken, async (req, res) => {
     `;
     await pool.query(query, [hunterId, webhookUrl]);
     res.status(200).send('Webhook updated successfully');
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).send('Internal server error');
+  }
+});
+
+const { Parser } = require('json2csv');
+
+app.get('/historical-urls', authenticateToken, checkSubscription, async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 10;
+  const search = req.query.search ? `%${req.query.search}%` : '%';
+  const offset = (page - 1) * pageSize;
+  const hunterId = req.user.id;
+  const format = req.query.format;
+
+  try {
+    const selectQuery = `
+      SELECT DISTINCT hr.url
+      FROM hurl_results hr
+      INNER JOIN user_domains ud ON hr.domain_id = ud.domain_id
+      WHERE ud.user_id = $1
+      AND hr.url ILIKE $2
+      ORDER BY hr.url
+      LIMIT $3 OFFSET $4`;
+
+    const countQuery = `
+      SELECT COUNT(DISTINCT hr.url)
+      FROM hurl_results hr
+      INNER JOIN user_domains ud ON hr.domain_id = ud.domain_id
+      WHERE ud.user_id = $1
+      AND hr.url ILIKE $2`;
+
+    if (format === 'csv') {
+      // Fetch all data for CSV
+      const selectResult = await pool.query(selectQuery, [hunterId, search, 1000000, 0]);
+      const parser = new Parser({
+        fields: ['url']
+      });
+      const csvData = parser.parse(selectResult.rows);
+      res.header('Content-Type', 'text/csv');
+      res.attachment('historical-urls.csv');
+      return res.send(csvData);
+    }
+
+    const countResult = await pool.query(countQuery, [hunterId, search]);
+    const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
+
+    res.status(200).json({
+      urls: selectResult.rows.map(row => row.url), // Map rows to a list of URLs
+      total: parseInt(countResult.rows[0].count),
+      page,
+      pageSize
+    });
   } catch (err) {
     console.error('Database error:', err);
     res.status(500).send('Internal server error');
