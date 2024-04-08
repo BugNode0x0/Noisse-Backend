@@ -680,6 +680,7 @@ app.get('/web-domains', authenticateToken, checkSubscription, async (req, res) =
         hr.tech ILIKE $2
       )`;
 
+      
     const countResult = await pool.query(countQuery, [hunterId, search]);
     const selectResult = await pool.query(selectQuery, [hunterId, search, pageSize, offset]);
 
