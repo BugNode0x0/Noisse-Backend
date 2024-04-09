@@ -154,7 +154,7 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
       payment_method_types: ['card'],
       customer: stripeCustomerId,
       line_items: [{
-        price: 'price_1OmqzqEexrrszXdmQu9X9ACY', // Your price ID
+        price: 'price_1OtHbeEexrrszXdmrD9Rg17p', // Your price ID
         quantity: 1,
       }],
       subscription_data: {
@@ -289,7 +289,7 @@ app.post('/domains/enumerate', authenticateToken, checkSubscription, async (req,
 
 
     // add http://slayer.noisse.io/monitor-domain after testing //
-    const response = await axios.post('http://slayer.noisse.io:420/monitor-domain', { domain }, {
+    const response = await axios.post('http://slayer.noisse.io/monitor-domain', { domain }, {
         headers: {
             'Authorization': `Bearer ${token}`,
             'X-User-ID': userId 
