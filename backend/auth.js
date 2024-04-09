@@ -18,6 +18,7 @@ const secret = new Uint8Array(
 router.use(cookieParser());
 
 
+
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 const clientId = process.env.WORKOS_CLIENT_ID;
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);

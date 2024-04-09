@@ -12,6 +12,8 @@ const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const Stripe = require('stripe');
 
+//sk_a2V5XzAxSFYwNlJXRllSWEtDQTRGN0hIRjlHWkI5LEhwYWNkWmFYMDVSY2M4dFJHMmpVbEpNOHY
+
 require('dotenv').config(); 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
