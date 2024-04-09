@@ -46,7 +46,7 @@ router.get('/auth', (_req, res) => {
   const authorizationUrl = workos.userManagement.getAuthorizationUrl({
     provider: 'authkit',
 
-    redirectUri: 'https://noisse-backend-development.up.railway.app/portal/callback',
+    redirectUri: 'https://api.noisse.io/portal/callback',
     clientId,
   });
 
@@ -108,7 +108,7 @@ router.get('/callback', async (req, res) => {
             sameSite: 'None',
         });
   
-        res.redirect('https://dev-noisse.vercel.app');
+        res.redirect('https://app.noisse.io');
     } catch (error) {
         console.error('Error in /callback:', error);
         res.status(500).send('Internal server error');

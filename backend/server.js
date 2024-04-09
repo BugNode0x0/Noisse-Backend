@@ -19,7 +19,7 @@ const app = express();
 const server = http.createServer(app);
 
 const corsOptions = {
-  origin: 'https://dev-noisse.vercel.app',
+  origin: 'https://app.noisse.io',
   methods: ['GET', 'POST'], 
   allowedHeaders: ['Content-Type'], 
   credentials: true
@@ -160,8 +160,8 @@ app.post('/create-checkout-session', authenticateToken, async (req, res) => {
       },
       allow_promotion_codes: true,
       mode: 'subscription',
-      success_url: `https://dev-noisse.vercel.app/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `https://dev-noisse.vercel.app/payment-cancelled`,
+      success_url: `https://app.noisse.io/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `https://app.noisse.io/payment-cancelled`,
     };
 
     // Add coupon code if provided
